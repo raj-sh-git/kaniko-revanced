@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/raj-sh-git/kaniko-revanced/pkg/ai"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/buildcontext"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/constants"
@@ -95,6 +97,35 @@ func validateFlags() {
 		for src, dsts := range opts.RegistryMaps {
 			logrus.Debugf("registry-map remaps %s to %s.", src, strings.Join(dsts, ", "))
 		}
+	}
+
+	// Allow setting AI flags from environment variables
+	if val, ok := os.LookupEnv("KANIKO_LLM_API"); ok && opts.LLMAPI == "" {
+		opts.LLMAPI = val
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_KEY"); ok && opts.LLMKey == "" {
+		opts.LLMKey = val
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_MODEL"); ok && opts.LLMModel == "" {
+		opts.LLMModel = val
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_DIAGNOSE"); ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			opts.LLMDiagnose = b
+		}
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_AUTO_HEAL"); ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			opts.LLMAutoHeal = b
+		}
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_LINT"); ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			opts.LLMLint = b
+		}
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_SAVE_FIXED"); ok && opts.LLMSaveFixedDockerfile == "" {
+		opts.LLMSaveFixedDockerfile = val
 	}
 
 	// Default the custom platform flag to our current platform, and validate it.
@@ -187,7 +218,7 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(errors.Wrap(err, "error changing to root dir"))
 		}
-		image, err := executor.DoBuild(opts)
+		image, err := executeBuildWithAI(opts)
 		if err != nil {
 			exit(errors.Wrap(err, "error building image"))
 		}
@@ -280,6 +311,20 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().VarP(&opts.IgnorePaths, "ignore-path", "", "Ignore these paths when taking a snapshot. Set it repeatedly for multiple paths.")
 	RootCmd.PersistentFlags().BoolVarP(&opts.ForceBuildMetadata, "force-build-metadata", "", false, "Force add metadata layers to build image")
 	RootCmd.PersistentFlags().BoolVarP(&opts.SkipPushPermissionCheck, "skip-push-permission-check", "", false, "Skip check of the push permission")
+
+	// AI Flags
+	RootCmd.PersistentFlags().StringVar(&opts.LLMAPI, "llm-api", "", "Base URL of the OpenAI-compatible LLM endpoint (e.g. https://api.openai.com/v1, http://localhost:11434/v1)")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMKey, "llm-key", "", "API key / Bearer token for the LLM endpoint")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMKeyFile, "llm-key-file", "", "Path to a file containing the LLM API key")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMModel, "llm-model", "gpt-4o-mini", "Model identifier to use for AI diagnostics and auto-healing")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMDiagnose, "llm-diagnose", false, "Provide full failure diagnostics, image size reduction tips, and codebase recommendations")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMAutoHeal, "llm-auto-heal", false, "Automatically patch Dockerfile errors and retry the build")
+	RootCmd.PersistentFlags().IntVar(&opts.LLMMaxRetries, "llm-max-retries", 2, "Maximum number of auto-healing retry attempts")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMSaveFixedDockerfile, "llm-save-fixed-dockerfile", "", "Path to save the auto-healed Dockerfile on successful build")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMLint, "llm-lint", false, "Perform pre-flight AI static analysis and Dockerfile optimization check")
+	RootCmd.PersistentFlags().DurationVar(&opts.LLMTimeout, "llm-timeout", 15*time.Second, "Timeout duration for LLM API requests")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMOutput, "llm-output", "auto", "Output format for AI reports (auto, terminal, markdown, json)")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMRedactPatterns, "llm-redact-patterns", "", "Comma-separated regex patterns to redact from LLM prompts")
 
 	// Deprecated flags.
 	RootCmd.PersistentFlags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")
@@ -498,4 +543,171 @@ func isURL(path string) bool {
 
 func shdSkip(path string) bool {
 	return path == "" || isURL(path) || filepath.IsAbs(path)
+}
+
+func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
+	var redactPatterns []string
+	if opts.LLMRedactPatterns != "" {
+		redactPatterns = strings.Split(opts.LLMRedactPatterns, ",")
+	}
+
+	aiCfg := ai.LLMConfig{
+		API:                 opts.LLMAPI,
+		Key:                 opts.LLMKey,
+		KeyFile:             opts.LLMKeyFile,
+		Model:               opts.LLMModel,
+		Diagnose:            opts.LLMDiagnose,
+		AutoHeal:            opts.LLMAutoHeal,
+		MaxRetries:          opts.LLMMaxRetries,
+		SaveFixedDockerfile: opts.LLMSaveFixedDockerfile,
+		Lint:                opts.LLMLint,
+		Timeout:             opts.LLMTimeout,
+		OutputFormat:        opts.LLMOutput,
+		RedactPatterns:      redactPatterns,
+	}
+
+	aiClient := ai.NewClient(aiCfg)
+
+	// Pre-flight static linting & optimization
+	if opts.LLMLint && aiClient.IsConfigured() {
+		if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {
+			ai.PrintHeader("AI PRE-FLIGHT DOCKERFILE LINT & OPTIMIZATION")
+			if lintReport, err := ai.RunLint(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
+				ai.PrintReport(lintReport)
+			} else {
+				logrus.Warnf("AI Lint request failed: %v", err)
+			}
+		}
+	}
+
+	// Auto-heal retry loop
+	if opts.LLMAutoHeal && aiClient.IsConfigured() {
+		maxAttempts := opts.LLMMaxRetries
+		if maxAttempts < 1 {
+			maxAttempts = 1
+		}
+
+		for attempt := 0; attempt <= maxAttempts; attempt++ {
+			if attempt > 0 {
+				logrus.Infof("Executing build with auto-healed Dockerfile (Attempt %d of %d)...", attempt, maxAttempts)
+			}
+
+			image, err := executor.DoBuild(opts)
+			if err == nil {
+				if attempt > 0 {
+					ai.PrintHeader("AI AUTO-HEAL: BUILD SUCCEEDED WITH PATCHED DOCKERFILE")
+					if opts.LLMSaveFixedDockerfile != "" {
+						if curContent, readErr := os.ReadFile(opts.DockerfilePath); readErr == nil {
+							_ = os.WriteFile(opts.LLMSaveFixedDockerfile, curContent, 0644)
+							logrus.Infof("Saved auto-healed Dockerfile to %s", opts.LLMSaveFixedDockerfile)
+						}
+					}
+				}
+				if opts.LLMDiagnose {
+					if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {
+						ai.PrintHeader("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
+						if diagReport, err := ai.RunSuccessDiagnostics(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
+							ai.PrintReport(diagReport)
+						}
+					}
+				}
+				return image, nil
+			}
+
+			// Build failed on this attempt
+			if attempt < maxAttempts {
+				var dockerfileContent string
+				if data, readErr := os.ReadFile(opts.DockerfilePath); readErr == nil {
+					dockerfileContent = string(data)
+				}
+
+				errCtx := ai.BuildErrorContext{
+					DockerfilePath:    opts.DockerfilePath,
+					DockerfileContent: dockerfileContent,
+					ErrorMessage:      err.Error(),
+					TargetArch:        opts.CustomPlatform,
+					TargetOS:          "linux",
+				}
+
+				ai.PrintHeader(fmt.Sprintf("AI AUTO-HEAL: ANALYZING FAILURE (ATTEMPT %d OF %d)", attempt+1, maxAttempts))
+				healResult, healErr := ai.RunAutoHeal(context.Background(), aiClient, errCtx)
+				if healErr != nil {
+					logrus.Warnf("AI Auto-Heal request failed: %v", healErr)
+					if opts.LLMDiagnose {
+						if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
+							ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
+							ai.PrintReport(diagReport)
+						}
+					}
+					return nil, err
+				}
+
+				logrus.Infof("Explanation: %s", healResult.Explanation)
+				ai.PrintDiff(healResult.Diff)
+
+				// Write patched Dockerfile and retry
+				if writeErr := os.WriteFile(opts.DockerfilePath, []byte(healResult.PatchedDockerfile), 0644); writeErr != nil {
+					logrus.Warnf("Failed to write patched Dockerfile: %v", writeErr)
+					return nil, err
+				}
+				continue
+			}
+
+			// Retries exhausted
+			if opts.LLMDiagnose {
+				var dockerfileContent string
+				if data, readErr := os.ReadFile(opts.DockerfilePath); readErr == nil {
+					dockerfileContent = string(data)
+				}
+				errCtx := ai.BuildErrorContext{
+					DockerfilePath:    opts.DockerfilePath,
+					DockerfileContent: dockerfileContent,
+					ErrorMessage:      err.Error(),
+					TargetArch:        opts.CustomPlatform,
+					TargetOS:          "linux",
+				}
+				if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
+					ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
+					ai.PrintReport(diagReport)
+				}
+			}
+			return nil, err
+		}
+	}
+
+	// Standard build (no auto-heal)
+	image, err := executor.DoBuild(opts)
+	if err != nil {
+		if opts.LLMDiagnose && aiClient.IsConfigured() {
+			var dockerfileContent string
+			if data, readErr := os.ReadFile(opts.DockerfilePath); readErr == nil {
+				dockerfileContent = string(data)
+			}
+			errCtx := ai.BuildErrorContext{
+				DockerfilePath:    opts.DockerfilePath,
+				DockerfileContent: dockerfileContent,
+				ErrorMessage:      err.Error(),
+				TargetArch:        opts.CustomPlatform,
+				TargetOS:          "linux",
+			}
+			if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
+				ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
+				ai.PrintReport(diagReport)
+			} else {
+				logrus.Warnf("AI Diagnostics request failed: %v", diagErr)
+			}
+		}
+		return nil, err
+	}
+
+	if opts.LLMDiagnose && aiClient.IsConfigured() {
+		if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {
+			ai.PrintHeader("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
+			if diagReport, err := ai.RunSuccessDiagnostics(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
+				ai.PrintReport(diagReport)
+			}
+		}
+	}
+
+	return image, nil
 }

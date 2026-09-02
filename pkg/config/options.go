@@ -91,6 +91,23 @@ type KanikoOptions struct {
 	ForceBuildMetadata       bool
 	InitialFSUnpacked        bool
 	SkipPushPermissionCheck  bool
+	LLMOptions
+}
+
+// LLMOptions are AI diagnostics and auto-healing options set by command line arguments
+type LLMOptions struct {
+	LLMAPI                 string
+	LLMKey                 string
+	LLMKeyFile             string
+	LLMModel               string
+	LLMDiagnose            bool
+	LLMAutoHeal            bool
+	LLMMaxRetries          int
+	LLMSaveFixedDockerfile string
+	LLMLint                bool
+	LLMTimeout             time.Duration
+	LLMOutput              string
+	LLMRedactPatterns      string
 }
 
 type KanikoGitOptions struct {
