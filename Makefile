@@ -26,6 +26,7 @@ ORG := github.com/raj-sh-git
 PROJECT := kaniko-revanced
 REGISTRY ?= kanikorevanced/executor
 WARMER_REGISTRY ?= kanikorevanced/warmer
+IMAGE_REPO ?= localhost:5000
 
 REPOPATH ?= $(ORG)/$(PROJECT)
 VERSION_PACKAGE = $(REPOPATH)/pkg/version
@@ -93,8 +94,8 @@ integration-test-misc:
 
 .PHONY: k8s-executor-build-push
 k8s-executor-build-push:
-	DOCKER_BUILDKIT=1 docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY):latest -f deploy/Dockerfile --target kaniko-executor .
-	docker push $(REGISTRY):latest
+	DOCKER_BUILDKIT=1 docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(IMAGE_REPO)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
+	docker push $(IMAGE_REPO)/executor:latest
 
 
 .PHONY: images

@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.27 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27 AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
 ARG TARGETARCH
 ARG TARGETOS
+ARG BUILDPLATFORM
 
 ENV GOARCH=$TARGETARCH
 ENV GOOS=$TARGETOS
@@ -63,7 +64,7 @@ RUN \
   make out/executor out/warmer
 
 # Generate latest ca-certificates
-FROM alpine:3.20 AS certs
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS certs
 RUN apk --no-cache add ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
