@@ -31,6 +31,12 @@ import (
 )
 
 func TestBuildWithStdin(t *testing.T) {
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to getwd: %v", err)
+	}
+	defer os.Chdir(origCwd)
+
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -44,7 +50,7 @@ func TestBuildWithStdin(t *testing.T) {
 	dockerfile := "Dockerfile_test_stdin"
 
 	files := map[string]string{
-		dockerfile: "FROM debian:10.13\nRUN echo \"hey\"",
+		dockerfile: "FROM debian:bookworm-slim\nRUN echo \"hey\"",
 	}
 
 	if err := testutil.SetupFiles(testDir, files); err != nil {
@@ -91,7 +97,7 @@ func TestBuildWithStdin(t *testing.T) {
 			"-f", dockerfile,
 			"."})...)
 
-	_, err := RunCommandWithoutTest(dockerCmd)
+	_, err = RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Fatalf("can't run %s: %v", dockerCmd.String(), err)
 	}

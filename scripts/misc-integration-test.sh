@@ -14,12 +14,10 @@
 # limitations under the License.
 
 # This script runs all integration tests except for
-# TestRun and TestLayers
+# TestRun, TestLayers, TestK8s, and TestSnapshotBenchmark
 set -e
 
-TESTS=$(./scripts/integration-test.sh -list=Test -mod=vendor)
-
-TESTS=$(echo $TESTS | tr ' ' '\n' | grep 'Test'| grep -v 'TestRun' | grep -v 'TestLayers' | grep -v 'TestK8s' | grep -v 'TestSnapshotBenchmark')
+TESTS=$(go test -list=Test ./integration/... 2>/dev/null | grep '^Test' | grep -v 'TestRun' | grep -v 'TestLayers' | grep -v 'TestK8s' | grep -v 'TestSnapshotBenchmark' || true)
 
 RUN_ARG=''
 count=0
