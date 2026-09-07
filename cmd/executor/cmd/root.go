@@ -603,6 +603,19 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 
 	aiClient := ai.NewClient(aiCfg)
 
+	hasAIFeatures := opts.LLMDiagnose || opts.LLMDiagnoseApply || opts.LLMAutoHeal || opts.LLMLint
+	if hasAIFeatures {
+		if !aiClient.IsConfigured() {
+			logrus.Warn("⚠️ LLM features were requested (--llm-auto-heal/--llm-diagnose/--llm-lint/--llm-diagnose-apply), but no LLM API endpoint was provided (--llm-api or KANIKO_LLM_API). All LLM flags will be ignored and build will proceed normally.")
+			return executor.DoBuild(opts)
+		}
+
+		if err := aiClient.CheckReachable(context.Background()); err != nil {
+			logrus.Warnf("⚠️ LLM API endpoint (%s) is not reachable (%v). All LLM flags will be ignored and build will proceed normally.", opts.LLMAPI, err)
+			return executor.DoBuild(opts)
+		}
+	}
+
 	// Pre-flight static linting & optimization
 	if opts.LLMLint && aiClient.IsConfigured() {
 		if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {

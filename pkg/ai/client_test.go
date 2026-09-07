@@ -64,3 +64,33 @@ func TestClient_Complete(t *testing.T) {
 		t.Errorf("expected 'Simulated LLM diagnostic response', got %q", res)
 	}
 }
+
+func TestClient_CheckReachable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Reachable case
+	client := NewClient(LLMConfig{
+		API:     server.URL,
+		Key:     "test-key",
+		Timeout: 5 * time.Second,
+	})
+	if err := client.CheckReachable(context.Background()); err != nil {
+		t.Fatalf("expected reachable, got error: %v", err)
+	}
+
+	// Unreachable case (closed server)
+	server.Close()
+	if err := client.CheckReachable(context.Background()); err == nil {
+		t.Fatalf("expected unreachable error, got nil")
+	}
+
+	// Unconfigured client case
+	unconfiguredClient := NewClient(LLMConfig{})
+	if err := unconfiguredClient.CheckReachable(context.Background()); err == nil {
+		t.Fatalf("expected error for unconfigured client, got nil")
+	}
+}
+

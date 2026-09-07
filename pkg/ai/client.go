@@ -210,3 +210,44 @@ func (c *Client) resolveEndpointURL(base string) string {
 	}
 	return clean + "/chat/completions"
 }
+
+// CheckReachable performs a fast non-blocking connectivity check against the endpoint
+func (c *Client) CheckReachable(ctx context.Context) error {
+	if !c.IsConfigured() {
+		return errors.New("no LLM API endpoint configured")
+	}
+
+	endpoint := c.resolveEndpointURL(c.cfg.API)
+
+	// Create a short timeout context (2.5 seconds) for reachability check
+	reachCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(reachCtx, http.MethodHead, endpoint, nil)
+	if err != nil {
+		return err
+	}
+	if c.cfg.Key != "" {
+		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.cfg.Key))
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		// Try a fallback GET request if HEAD is not supported by endpoint
+		getReq, getErr := http.NewRequestWithContext(reachCtx, http.MethodGet, endpoint, nil)
+		if getErr == nil {
+			if c.cfg.Key != "" {
+				getReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.cfg.Key))
+			}
+			respGet, errGet := c.httpClient.Do(getReq)
+			if errGet == nil {
+				respGet.Body.Close()
+				return nil
+			}
+		}
+		return errors.Wrap(err, "endpoint connection failed")
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
