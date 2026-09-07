@@ -24,7 +24,6 @@ ENV GOARCH=$TARGETARCH
 ENV GOOS=$TARGETOS
 
 ENV CGO_ENABLED=0
-ENV GOBIN=/usr/local/bin
 
 # Add .docker config dir
 RUN mkdir -p /kaniko/.docker
@@ -49,12 +48,15 @@ RUN git clone --depth 1 https://github.com/GoogleCloudPlatform/docker-credential
     rm -rf /tmp/gcr
 
 # Get Amazon ECR credential helper
-RUN go install -ldflags="-s -w" github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login@latest
+RUN git clone --depth 1 https://github.com/awslabs/amazon-ecr-credential-helper /tmp/ecr && \
+    cd /tmp/ecr/ecr-login && \
+    go build -ldflags="-s -w" -o /usr/local/bin/docker-credential-ecr-login ./cli/docker-credential-ecr-login && \
+    rm -rf /tmp/ecr
 
 # Get ACR docker env credential helper (built with patched dependencies to eliminate CVEs)
 RUN git clone --depth 1 https://github.com/chrismellard/docker-credential-acr-env /tmp/acr-env && \
     cd /tmp/acr-env && \
-    go get golang.org/x/crypto@v0.55.0 golang.org/x/net@v0.58.0 github.com/golang-jwt/jwt/v4@v4.5.2 && \
+    go get golang.org/x/crypto@v0.56.0 golang.org/x/net@v0.58.0 github.com/golang-jwt/jwt/v4@v4.5.2 && \
     go build -ldflags="-s -w" -o /usr/local/bin/docker-credential-acr-env . && \
     rm -rf /tmp/acr-env
 
