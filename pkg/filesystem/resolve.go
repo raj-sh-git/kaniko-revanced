@@ -20,9 +20,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 

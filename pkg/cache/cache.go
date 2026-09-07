@@ -24,15 +24,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/creds"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pkg/errors"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/creds"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 

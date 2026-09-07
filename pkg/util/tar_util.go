@@ -29,10 +29,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/system"
 	"github.com/pkg/errors"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 

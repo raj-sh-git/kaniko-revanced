@@ -26,14 +26,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
-	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/version"
+	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"github.com/spf13/afero"
 )
 
@@ -114,10 +115,10 @@ func TestHeaderAdded(t *testing.T) {
 	}{{
 		name:     "upstream env variable set",
 		upstream: "skaffold-v0.25.45",
-		expected: "kaniko/unset,skaffold-v0.25.45",
+		expected: fmt.Sprintf("kaniko/%s,skaffold-v0.25.45", version.Version()),
 	}, {
 		name:     "upstream env variable not set",
-		expected: "kaniko/unset",
+		expected: fmt.Sprintf("kaniko/%s", version.Version()),
 	},
 	}
 	for _, test := range tests {

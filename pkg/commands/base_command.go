@@ -17,8 +17,8 @@ limitations under the License.
 package commands
 
 import (
-	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 )
 
 type BaseCommand struct {

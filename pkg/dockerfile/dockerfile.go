@@ -29,12 +29,12 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/pkg/errors"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 )
 
 func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {

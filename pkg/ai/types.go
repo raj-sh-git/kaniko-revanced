@@ -74,13 +74,13 @@ type AutoHealResult struct {
 
 // AIAuditEntry captures request and response details for auditability
 type AIAuditEntry struct {
-	Timestamp      string `json:"timestamp"`
-	Endpoint       string `json:"endpoint"`
-	Model          string `json:"model"`
+	Timestamp       string `json:"timestamp"`
+	Endpoint        string `json:"endpoint"`
+	Model           string `json:"model"`
 	SanitizedSystem string `json:"sanitized_system_prompt"`
 	SanitizedUser   string `json:"sanitized_user_prompt"`
-	Response       string `json:"response"`
-	DurationMs     int64  `json:"duration_ms"`
+	Response        string `json:"response"`
+	DurationMs      int64  `json:"duration_ms"`
 }
 
 // ChatMessage represents a single message in an OpenAI-compatible chat payload

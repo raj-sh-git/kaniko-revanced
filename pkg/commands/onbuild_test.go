@@ -19,11 +19,11 @@ package commands
 import (
 	"testing"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 
-	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/raj-sh-git/kaniko-revanced/testutil"
 )
 
 var onbuildTests = []struct {

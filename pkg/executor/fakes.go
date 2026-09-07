@@ -22,10 +22,10 @@ import (
 	"errors"
 	"io"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/commands"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/commands"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 )
 
 type fakeSnapShotter struct {

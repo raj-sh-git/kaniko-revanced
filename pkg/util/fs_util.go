@@ -31,8 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/timing"
 	"github.com/docker/docker/pkg/archive"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/karrick/godirwalk"
@@ -40,6 +38,8 @@ import (
 	"github.com/moby/patternmatcher"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/pkg/errors"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/timing"
 	"github.com/sirupsen/logrus"
 )
 

@@ -30,13 +30,13 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/constants"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/mocks/go-containerregistry/mockv1"
 	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"go.uber.org/mock/gomock"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 func Test_DetectFilesystemSkiplist(t *testing.T) {

@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 	"github.com/pkg/errors"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 )
 
 // NewCompositeCache returns an initialized composite cache object.

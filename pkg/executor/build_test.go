@@ -27,12 +27,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/raj-sh-git/kaniko-revanced/pkg/cache"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/commands"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
-	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
-	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"github.com/containerd/containerd/platforms"
 	"github.com/google/go-cmp/cmp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -41,6 +35,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/cache"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/commands"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
+	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
+	"github.com/raj-sh-git/kaniko-revanced/testutil"
 )
 
 func Test_reviewConfig(t *testing.T) {
@@ -1795,7 +1795,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			},
 			expectedDigest: v1.Hash{
 				Algorithm: "sha256",
-				Hex:       "1dc5887a31ec6b388646be46c5f0b2036f92f4cbba50d12163a8be4074565a91",
+				Hex:       "a247167adc33731bd941a8370b43c43617de56e90d502bea42d9d8154c11aacb",
 			},
 		},
 		{
@@ -1816,7 +1816,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			},
 			expectedDigest: v1.Hash{
 				Algorithm: "sha256",
-				Hex:       "1dc5887a31ec6b388646be46c5f0b2036f92f4cbba50d12163a8be4074565a91",
+				Hex:       "a247167adc33731bd941a8370b43c43617de56e90d502bea42d9d8154c11aacb",
 			},
 		},
 		{

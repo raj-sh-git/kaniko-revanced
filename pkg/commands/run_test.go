@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 	"github.com/raj-sh-git/kaniko-revanced/testutil"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 func Test_addDefaultHOME(t *testing.T) {

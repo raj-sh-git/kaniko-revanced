@@ -25,10 +25,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
 	"github.com/raj-sh-git/kaniko-revanced/testutil"
-	"github.com/pkg/errors"
 )
 
 func TestSnapshotFSFileChange(t *testing.T) {

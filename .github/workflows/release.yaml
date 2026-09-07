@@ -91,12 +91,16 @@ jobs:
           
           if [ "${{ matrix.image_suffix }}" = "executor" ]; then
             if [ "${{ matrix.is_default }}" = "true" ]; then
-              TAGS="${REPO}:${CLEAN_VER},${REPO}:${VERSION},${REPO}:latest"
+              TAGS="${REPO}:${CLEAN_VER},${REPO}:${VERSION},${REPO}:latest,${REPO}:ai"
               PRIMARY="${REPO}:${CLEAN_VER}"
             else
               TAG_SUF="${{ matrix.tag_suffix }}"
               CLEAN_SUF="${TAG_SUF#-}"
-              TAGS="${REPO}:${CLEAN_SUF}-${CLEAN_VER},${REPO}:${VERSION}${TAG_SUF},${REPO}:${CLEAN_SUF}"
+              if [ "${CLEAN_SUF}" = "debug" ]; then
+                TAGS="${REPO}:${CLEAN_SUF}-${CLEAN_VER},${REPO}:${VERSION}${TAG_SUF},${REPO}:${CLEAN_SUF},${REPO}:ai-debug"
+              else
+                TAGS="${REPO}:${CLEAN_SUF}-${CLEAN_VER},${REPO}:${VERSION}${TAG_SUF},${REPO}:${CLEAN_SUF}"
+              fi
               PRIMARY="${REPO}:${CLEAN_SUF}-${CLEAN_VER}"
             fi
           elif [ "${{ matrix.image_suffix }}" = "warmer" ]; then

@@ -37,6 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/cache"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/commands"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/config"
@@ -47,7 +48,6 @@ import (
 	"github.com/raj-sh-git/kaniko-revanced/pkg/snapshot"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/timing"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/util"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 )
 
 // This is the size of an empty tar in Go

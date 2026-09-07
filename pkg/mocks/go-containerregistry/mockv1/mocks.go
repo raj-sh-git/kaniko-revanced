@@ -24,9 +24,9 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	types "github.com/google/go-containerregistry/pkg/v1/types"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLayer is a mock of Layer interface

@@ -20,9 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/raj-sh-git/kaniko-revanced/testutil"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/raj-sh-git/kaniko-revanced/testutil"
 )
 
 func TestGetGitPullMethod(t *testing.T) {

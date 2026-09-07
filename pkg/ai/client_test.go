@@ -93,4 +93,3 @@ func TestClient_CheckReachable(t *testing.T) {
 		t.Fatalf("expected error for unconfigured client, got nil")
 	}
 }
-
