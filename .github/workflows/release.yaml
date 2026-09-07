@@ -137,21 +137,21 @@ jobs:
         run: |
           TAG="${{ steps.meta.outputs.tag }}"
           CLEAN_VER="${TAG#v}"
-          cat <<EOF > RELEASE_NOTES.md
-## kaniko-revanced ${TAG}
-
-### 📦 Multi-Arch Images Available on Docker Hub
-* \`kanikorevanced/executor:${CLEAN_VER}\` (or \`latest\`, \`ai\`)
-* \`kanikorevanced/executor:debug-${CLEAN_VER}\` (or \`debug\`, \`ai-debug\`)
-* \`kanikorevanced/executor:slim-${CLEAN_VER}\` (or \`slim\`)
-* \`kanikorevanced/warmer:${CLEAN_VER}\` (or \`latest\`)
-
-### 🤖 AI-Powered Build Features
-* **Pre-flight LLM validation & health checks** with non-blocking fail-open resilience.
-* **Intelligent Auto-healing** (\`--llm-auto-heal\`): automatically remediates Dockerfile build errors.
-* **AI Diagnostics & Optimization** (\`--llm-diagnose\`, \`--llm-diagnose-apply\`, \`--llm-lint\`).
-* **GitLab CI & CI logs protection** with native collapsible sections.
-EOF
+          {
+            echo "## kaniko-revanced ${TAG}"
+            echo ""
+            echo "### 📦 Multi-Arch Images Available on Docker Hub"
+            echo "* \`kanikorevanced/executor:${CLEAN_VER}\` (or \`latest\`, \`ai\`)"
+            echo "* \`kanikorevanced/executor:debug-${CLEAN_VER}\` (or \`debug\`, \`ai-debug\`)"
+            echo "* \`kanikorevanced/executor:slim-${CLEAN_VER}\` (or \`slim\`)"
+            echo "* \`kanikorevanced/warmer:${CLEAN_VER}\` (or \`latest\`)"
+            echo ""
+            echo "### 🤖 AI-Powered Build Features"
+            echo "* **Pre-flight LLM validation & health checks** with non-blocking fail-open resilience."
+            echo "* **Intelligent Auto-healing** (\`--llm-auto-heal\`): automatically remediates Dockerfile build errors."
+            echo "* **AI Diagnostics & Optimization** (\`--llm-diagnose\`, \`--llm-diagnose-apply\`, \`--llm-lint\`)."
+            echo "* **GitLab CI & CI logs protection** with native collapsible sections."
+          } > RELEASE_NOTES.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
