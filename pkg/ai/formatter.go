@@ -18,7 +18,9 @@ package ai
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -31,8 +33,27 @@ const (
 	ansiCyan   = "\033[36m"
 )
 
-// PrintHeader renders a stylish banner
+func isGitLabCI() bool {
+	return os.Getenv("GITLAB_CI") == "true" || os.Getenv("CI_SERVER") == "yes"
+}
+
+func isGitHubActions() bool {
+	return os.Getenv("GITHUB_ACTIONS") == "true"
+}
+
+// PrintHeader renders a stylish banner or CI collapsible group
 func PrintHeader(title string) {
+	if isGitLabCI() {
+		secName := strings.ToLower(strings.ReplaceAll(title, " ", "_"))
+		fmt.Printf("\033[0Ksection_start:%d:%s[collapsed=true]\r\033[0K%s%s%s%s\n", time.Now().Unix(), secName, ansiCyan, ansiBold, title, ansiReset)
+		return
+	}
+
+	if isGitHubActions() {
+		fmt.Printf("::group::%s\n", title)
+		return
+	}
+
 	width := 72
 	fmt.Println()
 	fmt.Printf("%s%s╔%s╗%s\n", ansiCyan, ansiBold, strings.Repeat("═", width-2), ansiReset)
@@ -42,6 +63,18 @@ func PrintHeader(title string) {
 	}
 	fmt.Printf("%s%s║ %s%s%s ║%s\n", ansiCyan, ansiBold, strings.Repeat(" ", padding), title, strings.Repeat(" ", width-4-len(title)-padding), ansiReset)
 	fmt.Printf("%s%s╚%s╝%s\n", ansiCyan, ansiBold, strings.Repeat("═", width-2), ansiReset)
+}
+
+// PrintFooter closes collapsible CI groups if open
+func PrintFooter(title string) {
+	if isGitLabCI() {
+		secName := strings.ToLower(strings.ReplaceAll(title, " ", "_"))
+		fmt.Printf("\033[0Ksection_end:%d:%s\r\033[0K\n", time.Now().Unix(), secName)
+		return
+	}
+	if isGitHubActions() {
+		fmt.Println("::endgroup::")
+	}
 }
 
 // PrintDiff renders a colorized unified diff

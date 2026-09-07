@@ -22,18 +22,23 @@ import (
 
 // LLMConfig stores resolved configuration for connecting to an LLM provider
 type LLMConfig struct {
-	API                 string
-	Key                 string
-	KeyFile             string
-	Model               string
-	Diagnose            bool
-	AutoHeal            bool
-	MaxRetries          int
-	SaveFixedDockerfile string
-	Lint                bool
-	Timeout             time.Duration
-	OutputFormat        string
-	RedactPatterns      []string
+	API                string
+	Key                string
+	KeyFile            string
+	Model              string
+	Diagnose           bool
+	DiagnoseApply      bool
+	AutoHeal           bool
+	MaxRetries         int
+	SaveDockerfile     string
+	ArtifactDir        string
+	Lint               bool
+	Timeout            time.Duration
+	OutputFormat       string
+	RedactPatterns     []string
+	Verbose            bool
+	PrivacyMode        string
+	SecurityGuardrails bool
 }
 
 // BuildErrorContext encapsulates the full context of a failed build step
@@ -48,6 +53,7 @@ type BuildErrorContext struct {
 	BaseOS            string
 	TargetArch        string
 	TargetOS          string
+	PrivacyMode       string
 }
 
 // DiagnosticResult contains parsed root cause and optimization advice
@@ -64,6 +70,17 @@ type AutoHealResult struct {
 	PatchedDockerfile string `json:"patched_dockerfile"`
 	Explanation       string `json:"explanation"`
 	Diff              string `json:"diff"`
+}
+
+// AIAuditEntry captures request and response details for auditability
+type AIAuditEntry struct {
+	Timestamp      string `json:"timestamp"`
+	Endpoint       string `json:"endpoint"`
+	Model          string `json:"model"`
+	SanitizedSystem string `json:"sanitized_system_prompt"`
+	SanitizedUser   string `json:"sanitized_user_prompt"`
+	Response       string `json:"response"`
+	DurationMs     int64  `json:"duration_ms"`
 }
 
 // ChatMessage represents a single message in an OpenAI-compatible chat payload

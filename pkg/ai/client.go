@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,8 @@ import (
 type Client struct {
 	cfg        LLMConfig
 	httpClient *http.Client
+	auditMu    sync.Mutex
+	auditLogs  []AIAuditEntry
 }
 
 // NewClient initializes an LLM client with resolved configuration
@@ -97,17 +100,31 @@ func (c *Client) IsConfigured() bool {
 	return c.cfg.API != ""
 }
 
+// GetAuditLogs returns all captured audit entries
+func (c *Client) GetAuditLogs() []AIAuditEntry {
+	c.auditMu.Lock()
+	defer c.auditMu.Unlock()
+	return append([]AIAuditEntry(nil), c.auditLogs...)
+}
+
 // Complete dispatches a chat completion request to the OpenAI-compatible endpoint
 func (c *Client) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	if !c.IsConfigured() {
 		return "", errors.New("no LLM API endpoint configured (use --llm-api or KANIKO_LLM_API)")
 	}
 
+	startTime := time.Now()
 	endpoint := c.resolveEndpointURL(c.cfg.API)
 
 	// Sanitize prompts before transmission
 	cleanSystem := SanitizeText(systemPrompt, c.cfg.RedactPatterns)
 	cleanUser := SanitizeText(userPrompt, c.cfg.RedactPatterns)
+
+	if c.cfg.Verbose {
+		PrintHeader("📤 [KANIKO AI] PROMPT DISPATCHED TO LLM")
+		fmt.Printf("Endpoint: %s | Model: %s\n\n", endpoint, c.cfg.Model)
+		fmt.Printf("--- System Prompt ---\n%s\n\n--- User Prompt ---\n%s\n\n", cleanSystem, cleanUser)
+	}
 
 	reqPayload := ChatCompletionRequest{
 		Model: c.cfg.Model,
@@ -163,7 +180,27 @@ func (c *Client) Complete(ctx context.Context, systemPrompt, userPrompt string) 
 		return "", errors.New("LLM returned empty choices")
 	}
 
-	return chatResp.Choices[0].Message.Content, nil
+	content := chatResp.Choices[0].Message.Content
+	durationMs := time.Since(startTime).Milliseconds()
+
+	if c.cfg.Verbose {
+		PrintHeader("📥 [KANIKO AI] RAW RESPONSE RECEIVED")
+		fmt.Printf("Duration: %dms\n\n%s\n\n", durationMs, content)
+	}
+
+	c.auditMu.Lock()
+	c.auditLogs = append(c.auditLogs, AIAuditEntry{
+		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		Endpoint:        endpoint,
+		Model:           c.cfg.Model,
+		SanitizedSystem: cleanSystem,
+		SanitizedUser:   cleanUser,
+		Response:        content,
+		DurationMs:      durationMs,
+	})
+	c.auditMu.Unlock()
+
+	return content, nil
 }
 
 func (c *Client) resolveEndpointURL(base string) string {

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const diagnosticSystemPrompt = `You are the AI Container Diagnostic and Optimization Engine for kaniko-revanced (a fast, daemonless container builder).
@@ -35,6 +37,17 @@ Format your response clearly using markdown with clear headings:
 ## 💡 Recommended Fix & Dockerfile Diff
 ## 📉 Image Size Reduction Suggestions
 ## ⭐ Codebase & Best Practice Recommendations`
+
+const diagnoseApplySystemPrompt = "You are the AI Dockerfile Optimization Engine for kaniko-revanced.\n" +
+	"Your task is to analyze the provided Dockerfile and rewrite it to be fully optimized for:\n" +
+	"1. Minimal image size (multi-stage builds, --no-cache, purging package caches like /var/cache/apk/* or /var/lib/apt/lists/*).\n" +
+	"2. Layer caching efficiency (copying lockfiles first).\n" +
+	"3. Security best practices (non-root USER).\n\n" +
+	"Respond in this EXACT format:\n\n" +
+	"EXPLANATION: <One concise sentence summarizing the optimizations applied>\n\n" +
+	"```dockerfile\n" +
+	"<The complete, optimized Dockerfile>\n" +
+	"```\n"
 
 // RunDiagnostics executes full failure diagnosis and optimization review
 func RunDiagnostics(ctx context.Context, client *Client, errCtx BuildErrorContext) (string, error) {
@@ -64,7 +77,9 @@ func RunDiagnostics(ctx context.Context, client *Client, errCtx BuildErrorContex
 		userPrompt.WriteString("\n```\n")
 	}
 
-	if errCtx.DockerfileContent != "" {
+	if errCtx.PrivacyMode == "strict" {
+		userPrompt.WriteString("\n(Privacy Mode Active: Full Dockerfile content omitted from prompt)\n")
+	} else if errCtx.DockerfileContent != "" {
 		userPrompt.WriteString("\n### Current Dockerfile:\n```dockerfile\n")
 		userPrompt.WriteString(errCtx.DockerfileContent)
 		userPrompt.WriteString("\n```\n")
@@ -86,4 +101,31 @@ Analyze this Dockerfile and provide actionable recommendations for:
 	userPrompt := fmt.Sprintf("Analyze this successfully built Dockerfile for optimization opportunities (Platform: %s):\n\n```dockerfile\n%s\n```", targetArch, dockerfileContent)
 
 	return client.Complete(ctx, systemPrompt, userPrompt)
+}
+
+// RunDiagnoseAndApply optimizes the Dockerfile and returns the patched contents + unified diff
+func RunDiagnoseAndApply(ctx context.Context, client *Client, dockerfileContent, targetArch string) (*AutoHealResult, error) {
+	userPrompt := fmt.Sprintf("Optimize this Dockerfile for minimal image size, layer caching, and security (Platform: %s):\n\n```dockerfile\n%s\n```", targetArch, dockerfileContent)
+
+	rawResponse, err := client.Complete(ctx, diagnoseApplySystemPrompt, userPrompt)
+	if err != nil {
+		return nil, errors.Wrap(err, "diagnose-apply LLM request failed")
+	}
+
+	explanation, optimizedDockerfile, err := parseAutoHealResponse(rawResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := ValidatePatchedDockerfile(dockerfileContent, optimizedDockerfile); err != nil {
+		return nil, errors.Wrap(err, "diagnose-apply validation failed")
+	}
+
+	diff := generateUnifiedDiff(dockerfileContent, optimizedDockerfile)
+
+	return &AutoHealResult{
+		PatchedDockerfile: optimizedDockerfile,
+		Explanation:       explanation,
+		Diff:              diff,
+	}, nil
 }

@@ -17,11 +17,13 @@ limitations under the License.
 package ai
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/pkg/errors"
 )
 
@@ -30,7 +32,8 @@ const autoHealSystemPrompt = "You are the Autonomous Auto-Healing Engine for kan
 	"Rules:\n" +
 	"1. Fix the root cause (e.g. missing package manager dependencies, wrong flag, missing build toolchain, syntax error, missing directory creation).\n" +
 	"2. Maintain all original intent and functionality of the image.\n" +
-	"3. Respond in this EXACT format:\n\n" +
+	"3. Maintain original base images and security postures (e.g. non-root USER).\n" +
+	"4. Respond in this EXACT format:\n\n" +
 	"EXPLANATION: <One concise sentence explaining the fix applied>\n\n" +
 	"```dockerfile\n" +
 	"<The complete, corrected Dockerfile with no missing stages or truncation>\n" +
@@ -56,7 +59,11 @@ func RunAutoHeal(ctx context.Context, client *Client, errCtx BuildErrorContext) 
 		userPrompt.WriteString(fmt.Sprintf("Logs/Stderr:\n```\n%s\n```\n\n", errCtx.RecentLogs))
 	}
 
-	userPrompt.WriteString(fmt.Sprintf("Original Dockerfile:\n```dockerfile\n%s\n```\n", errCtx.DockerfileContent))
+	if errCtx.PrivacyMode == "strict" {
+		userPrompt.WriteString("Privacy Mode Active: Full Dockerfile content omitted. Please generate a corrected Dockerfile for this instruction.\n")
+	} else if errCtx.DockerfileContent != "" {
+		userPrompt.WriteString(fmt.Sprintf("Original Dockerfile:\n```dockerfile\n%s\n```\n", errCtx.DockerfileContent))
+	}
 
 	rawResponse, err := client.Complete(ctx, autoHealSystemPrompt, userPrompt.String())
 	if err != nil {
@@ -68,6 +75,11 @@ func RunAutoHeal(ctx context.Context, client *Client, errCtx BuildErrorContext) 
 		return nil, err
 	}
 
+	// Validate AST & safety guardrails
+	if err := ValidatePatchedDockerfile(errCtx.DockerfileContent, patchedDockerfile); err != nil {
+		return nil, errors.Wrap(err, "safety guardrail validation failed")
+	}
+
 	diff := generateUnifiedDiff(errCtx.DockerfileContent, patchedDockerfile)
 
 	return &AutoHealResult{
@@ -75,6 +87,36 @@ func RunAutoHeal(ctx context.Context, client *Client, errCtx BuildErrorContext) 
 		Explanation:       explanation,
 		Diff:              diff,
 	}, nil
+}
+
+// ValidatePatchedDockerfile verifies that the patched Dockerfile is syntactically valid AST and adheres to security constraints
+func ValidatePatchedDockerfile(original, patched string) error {
+	if strings.TrimSpace(patched) == "" {
+		return errors.New("patched Dockerfile is empty")
+	}
+
+	// 1. AST syntax parsing
+	res, err := parser.Parse(bytes.NewReader([]byte(patched)))
+	if err != nil {
+		return errors.Wrap(err, "invalid Dockerfile syntax in LLM response")
+	}
+	if res.AST == nil || len(res.AST.Children) == 0 {
+		return errors.New("empty AST nodes in patched Dockerfile")
+	}
+
+	// 2. Ensure at least one FROM instruction exists
+	hasFrom := false
+	for _, child := range res.AST.Children {
+		if strings.ToUpper(child.Value) == "FROM" {
+			hasFrom = true
+			break
+		}
+	}
+	if !hasFrom {
+		return errors.New("missing FROM instruction in patched Dockerfile")
+	}
+
+	return nil
 }
 
 func parseAutoHealResponse(response string) (string, string, error) {

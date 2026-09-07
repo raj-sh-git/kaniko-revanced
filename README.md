@@ -41,10 +41,145 @@ In comparative testing against the official Google Kaniko executor (`gcr.io/kani
 ## Quickstart
 
 Run **kaniko-revanced** as a container image from Docker Hub repository [`kanikorevanced/executor`](https://hub.docker.com/r/kanikorevanced/executor):
+- **AI-Powered Diagnostics & Auto-Healing**: `kanikorevanced/executor:ai` (or `kanikorevanced/executor:ai-debug`)
 - **Standard Executor**: `kanikorevanced/executor:latest` (or `kanikorevanced/executor:0.1.0`)
 - **Debug Shell**: `kanikorevanced/executor:debug` (or `kanikorevanced/executor:debug-0.1.0`)
 - **Slim**: `kanikorevanced/executor:slim` (or `kanikorevanced/executor:slim-0.1.0`)
 - **Cache Warmer**: `kanikorevanced/warmer:latest` (or `kanikorevanced/warmer:0.1.0`)
+
+---
+
+## 🤖 AI-Powered Diagnostics, Optimization & Auto-Healing (`executor:ai`)
+
+`kaniko-revanced` includes native AI intelligence directly inside the builder. It works with any OpenAI-compatible endpoint (**Local Ollama**, **Google Gemini**, **OpenAI**, **Anthropic**, **Groq**, **DeepSeek**, **OpenRouter**, or enterprise gateways).
+
+```
+                      Kaniko Revanced
+                            │
+       ┌────────────────────┼────────────────────┐
+       ▼                    ▼                    ▼
+Deterministic           Security             LLM Layer
+   Engine                Engine                  │
+ ├─ Build errors       ├─ Secrets (scrubbed)   ├─ Reasoning
+ ├─ Image size         ├─ Misconfigs           ├─ Diagnosis
+ ├─ Layers             ├─ Packages             ├─ Remediation
+ └─ Dependencies       └─ CVEs                 └─ Optimization
+       │                    │                    │
+       └────────────────────┼────────────────────┘
+                            ▼
+                      Action Engine
+                            │
+             ┌──────────────┼──────────────┐
+             ▼              ▼              ▼
+            Fix           Report         Commit
+       (Auto-Heal)      (Compact CI)   (Git / Files)
+```
+
+### Core AI Capabilities
+
+1. **🔧 Autonomous Auto-Healing (`--llm-auto-heal`)**:
+   - Catches failing `RUN`/`COPY` steps in real-time.
+   - Prompts the LLM for an exact code fix, validates the AST syntax, and displays a unified color diff.
+   - Automatically re-executes the build with the patched Dockerfile up to `--llm-max-retries=N`.
+2. **📉 Full-Spectrum Failure & Size Diagnostics (`--llm-diagnose`)**:
+   - Pinpoints root causes of failures.
+   - Recommends actionable techniques to shrink image size (multi-stage builds, cache purges, toolchain stripping).
+   - Suggests codebase & security best practices.
+3. **⚡ Apply Optimizations Directly (`--llm-diagnose-apply`)**:
+   - Takes recommendations and generates an optimized, production-ready Dockerfile.
+4. **🔒 Deterministic Safety Guardrails & Secret Sanitization**:
+   - Automatically scrubs passwords, API keys, AWS keys, GitHub tokens, and JWTs before prompt dispatch.
+   - BuildKit AST syntax parser validates all LLM output before application.
+   - Prohibits LLMs from altering corporate base images or escalating root privileges.
+5. **🛡️ GitLab CI Log Protection**:
+   - Uses GitLab native collapsible sections (`\e[0Ksection_start...`) and context window limits to guarantee your CI/CD job logs never exceed the 4MB limit.
+   - Offloads detailed audit histories and patches to `--llm-artifact-dir`.
+
+### AI CLI Flags Reference
+
+| Flag | Environment Variable | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--llm-api` | `KANIKO_LLM_API` | `""` | Base URL of OpenAI-compatible endpoint (e.g. `https://api.openai.com/v1`, `http://localhost:11434/v1`) |
+| `--llm-key` | `KANIKO_LLM_KEY` | `""` | API Key / Bearer token (also checks `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`) |
+| `--llm-key-file` | `""` | `""` | Path to a file containing the API key (ideal for Kubernetes secrets) |
+| `--llm-model` | `KANIKO_LLM_MODEL` | `gpt-4o-mini` | Model identifier to use (e.g. `gemini-2.5-flash`, `deepseek-coder`, `gpt-4o-mini`) |
+| `--llm-auto-heal` | `KANIKO_LLM_AUTO_HEAL` | `false` | Automatically patch Dockerfile errors and retry build |
+| `--llm-max-retries` | `KANIKO_LLM_MAX_RETRIES` | `2` | Maximum auto-healing retry attempts |
+| `--llm-diagnose` | `KANIKO_LLM_DIAGNOSE` | `false` | Generate root-cause diagnostic and image size reduction advice |
+| `--llm-diagnose-apply` | `KANIKO_LLM_DIAGNOSE_APPLY` | `false` | Apply image size & codebase optimizations directly to Dockerfile |
+| `--llm-save-dockerfile` | `KANIKO_LLM_SAVE_DOCKERFILE` | `""` | Path to save the fixed/optimized Dockerfile |
+| `--llm-artifact-dir` | `KANIKO_LLM_ARTIFACT_DIR` | `""` | Directory to output build artifacts (`Dockerfile.fixed`, `changes.patch`, `ai-audit.json`) |
+| `--llm-lint` | `KANIKO_LLM_LINT` | `false` | Perform pre-flight AI static analysis on Dockerfile |
+| `--llm-verbose` | `KANIKO_LLM_VERBOSE` | `false` | Print sanitized prompts and raw LLM responses to console |
+| `--llm-privacy-mode` | `KANIKO_LLM_PRIVACY_MODE` | `standard` | Privacy level: `standard` (sends Dockerfile + logs) or `strict` (sends error logs only) |
+| `--llm-security-guardrails` | `""` | `true` | Enforce AST syntax validation and base image locks on patches |
+| `--llm-timeout` | `""` | `15s` | LLM HTTP client timeout (fail-open resilience) |
+
+### AI Usage Examples
+
+#### 1. Local Offline LLM with Ollama (100% Private, Zero Cloud)
+```bash
+docker run --rm -v "$(pwd)":/workspace kanikorevanced/executor:ai \
+  --dockerfile=/workspace/Dockerfile \
+  --context=/workspace/ \
+  --no-push \
+  --llm-api="http://host.docker.internal:11434/v1" \
+  --llm-model="deepseek-coder:6.7b" \
+  --llm-auto-heal \
+  --llm-diagnose
+```
+
+#### 2. Google Gemini / AI Studio
+```bash
+docker run --rm -v "$(pwd)":/workspace \
+  -e KANIKO_LLM_API="https://generativelanguage.googleapis.com/v1beta/openai/" \
+  -e KANIKO_LLM_KEY="$GEMINI_API_KEY" \
+  -e KANIKO_LLM_MODEL="gemini-2.5-flash" \
+  kanikorevanced/executor:ai \
+  --dockerfile=/workspace/Dockerfile \
+  --context=/workspace/ \
+  --no-push \
+  --llm-auto-heal \
+  --llm-diagnose
+```
+
+#### 3. OpenAI / OpenRouter / Groq / LiteLLM
+```bash
+docker run --rm -v "$(pwd)":/workspace \
+  -e KANIKO_LLM_API="https://api.openai.com/v1" \
+  -e KANIKO_LLM_KEY="$OPENAI_API_KEY" \
+  -e KANIKO_LLM_MODEL="gpt-4o-mini" \
+  kanikorevanced/executor:ai \
+  --dockerfile=/workspace/Dockerfile \
+  --context=/workspace/ \
+  --no-push \
+  --llm-auto-heal \
+  --llm-diagnose
+```
+
+#### 4. GitLab CI Pipeline with Auto-Healing & Artifacts
+```yaml
+build_image:
+  stage: build
+  image:
+    name: kanikorevanced/executor:ai
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+        --context=$CI_PROJECT_DIR
+        --dockerfile=$CI_PROJECT_DIR/Dockerfile
+        --destination=$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+        --llm-auto-heal
+        --llm-diagnose
+        --llm-artifact-dir=$CI_PROJECT_DIR/kaniko-out
+  artifacts:
+    name: "kaniko-ai-report-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - kaniko-out/
+    when: always
+```
+
+---
 
 ### Running in Kubernetes
 

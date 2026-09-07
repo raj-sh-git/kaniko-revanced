@@ -124,8 +124,27 @@ func validateFlags() {
 			opts.LLMLint = b
 		}
 	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_DIAGNOSE_APPLY"); ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			opts.LLMDiagnoseApply = b
+		}
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_SAVE_DOCKERFILE"); ok && opts.LLMSaveDockerfile == "" {
+		opts.LLMSaveDockerfile = val
+	}
 	if val, ok := os.LookupEnv("KANIKO_LLM_SAVE_FIXED"); ok && opts.LLMSaveFixedDockerfile == "" {
 		opts.LLMSaveFixedDockerfile = val
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_ARTIFACT_DIR"); ok && opts.LLMArtifactDir == "" {
+		opts.LLMArtifactDir = val
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_VERBOSE"); ok {
+		if b, err := strconv.ParseBool(val); err == nil {
+			opts.LLMVerbose = b
+		}
+	}
+	if val, ok := os.LookupEnv("KANIKO_LLM_PRIVACY_MODE"); ok && opts.LLMPrivacyMode == "" {
+		opts.LLMPrivacyMode = val
 	}
 
 	// Default the custom platform flag to our current platform, and validate it.
@@ -318,13 +337,19 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().StringVar(&opts.LLMKeyFile, "llm-key-file", "", "Path to a file containing the LLM API key")
 	RootCmd.PersistentFlags().StringVar(&opts.LLMModel, "llm-model", "gpt-4o-mini", "Model identifier to use for AI diagnostics and auto-healing")
 	RootCmd.PersistentFlags().BoolVar(&opts.LLMDiagnose, "llm-diagnose", false, "Provide full failure diagnostics, image size reduction tips, and codebase recommendations")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMDiagnoseApply, "llm-diagnose-apply", false, "Apply AI image size and codebase optimizations directly to Dockerfile")
 	RootCmd.PersistentFlags().BoolVar(&opts.LLMAutoHeal, "llm-auto-heal", false, "Automatically patch Dockerfile errors and retry the build")
 	RootCmd.PersistentFlags().IntVar(&opts.LLMMaxRetries, "llm-max-retries", 2, "Maximum number of auto-healing retry attempts")
-	RootCmd.PersistentFlags().StringVar(&opts.LLMSaveFixedDockerfile, "llm-save-fixed-dockerfile", "", "Path to save the auto-healed Dockerfile on successful build")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMSaveDockerfile, "llm-save-dockerfile", "", "Path to save the fixed/optimized Dockerfile")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMSaveFixedDockerfile, "llm-save-fixed-dockerfile", "", "Path to save the auto-healed Dockerfile (alias for --llm-save-dockerfile)")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMArtifactDir, "llm-artifact-dir", "", "Directory path to write AI build artifacts (patches, reports, audit logs)")
 	RootCmd.PersistentFlags().BoolVar(&opts.LLMLint, "llm-lint", false, "Perform pre-flight AI static analysis and Dockerfile optimization check")
 	RootCmd.PersistentFlags().DurationVar(&opts.LLMTimeout, "llm-timeout", 15*time.Second, "Timeout duration for LLM API requests")
 	RootCmd.PersistentFlags().StringVar(&opts.LLMOutput, "llm-output", "auto", "Output format for AI reports (auto, terminal, markdown, json)")
 	RootCmd.PersistentFlags().StringVar(&opts.LLMRedactPatterns, "llm-redact-patterns", "", "Comma-separated regex patterns to redact from LLM prompts")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMVerbose, "llm-verbose", false, "Print sanitized prompt and raw LLM response to console")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMPrivacyMode, "llm-privacy-mode", "standard", "Privacy level for prompts (standard, strict)")
+	RootCmd.PersistentFlags().BoolVar(&opts.LLMSecurityGuardrails, "llm-security-guardrails", true, "Enforce AST validation and safety guardrails on AI patches")
 
 	// Deprecated flags.
 	RootCmd.PersistentFlags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")
@@ -551,19 +576,29 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 		redactPatterns = strings.Split(opts.LLMRedactPatterns, ",")
 	}
 
+	savePath := opts.LLMSaveDockerfile
+	if savePath == "" && opts.LLMSaveFixedDockerfile != "" {
+		savePath = opts.LLMSaveFixedDockerfile
+	}
+
 	aiCfg := ai.LLMConfig{
-		API:                 opts.LLMAPI,
-		Key:                 opts.LLMKey,
-		KeyFile:             opts.LLMKeyFile,
-		Model:               opts.LLMModel,
-		Diagnose:            opts.LLMDiagnose,
-		AutoHeal:            opts.LLMAutoHeal,
-		MaxRetries:          opts.LLMMaxRetries,
-		SaveFixedDockerfile: opts.LLMSaveFixedDockerfile,
-		Lint:                opts.LLMLint,
-		Timeout:             opts.LLMTimeout,
-		OutputFormat:        opts.LLMOutput,
-		RedactPatterns:      redactPatterns,
+		API:                opts.LLMAPI,
+		Key:                opts.LLMKey,
+		KeyFile:            opts.LLMKeyFile,
+		Model:              opts.LLMModel,
+		Diagnose:           opts.LLMDiagnose,
+		DiagnoseApply:      opts.LLMDiagnoseApply,
+		AutoHeal:           opts.LLMAutoHeal,
+		MaxRetries:         opts.LLMMaxRetries,
+		SaveDockerfile:     savePath,
+		ArtifactDir:        opts.LLMArtifactDir,
+		Lint:               opts.LLMLint,
+		Timeout:            opts.LLMTimeout,
+		OutputFormat:       opts.LLMOutput,
+		RedactPatterns:     redactPatterns,
+		Verbose:            opts.LLMVerbose,
+		PrivacyMode:        opts.LLMPrivacyMode,
+		SecurityGuardrails: opts.LLMSecurityGuardrails,
 	}
 
 	aiClient := ai.NewClient(aiCfg)
@@ -577,6 +612,33 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 			} else {
 				logrus.Warnf("AI Lint request failed: %v", err)
 			}
+			ai.PrintFooter("AI PRE-FLIGHT DOCKERFILE LINT & OPTIMIZATION")
+		}
+	}
+
+	// Direct Diagnose-Apply mode (optimize Dockerfile upfront)
+	if opts.LLMDiagnoseApply && aiClient.IsConfigured() {
+		if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {
+			ai.PrintHeader("AI DIAGNOSE-APPLY: OPTIMIZING DOCKERFILE")
+			optResult, optErr := ai.RunDiagnoseAndApply(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform)
+			if optErr == nil {
+				logrus.Infof("Explanation: %s", optResult.Explanation)
+				ai.PrintDiff(optResult.Diff)
+				if savePath != "" {
+					_ = os.WriteFile(savePath, []byte(optResult.PatchedDockerfile), 0644)
+					logrus.Infof("Saved optimized Dockerfile to %s", savePath)
+				}
+				if opts.LLMArtifactDir != "" {
+					_ = ai.ExportArtifacts(opts.LLMArtifactDir, optResult.PatchedDockerfile, optResult.Explanation, optResult.Diff, aiClient.GetAuditLogs())
+				}
+				// If user requested in-place overwrite, update active DockerfilePath
+				if savePath == opts.DockerfilePath {
+					_ = os.WriteFile(opts.DockerfilePath, []byte(optResult.PatchedDockerfile), 0644)
+				}
+			} else {
+				logrus.Warnf("AI Diagnose-Apply failed: %v", optErr)
+			}
+			ai.PrintFooter("AI DIAGNOSE-APPLY: OPTIMIZING DOCKERFILE")
 		}
 	}
 
@@ -587,6 +649,10 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 			maxAttempts = 1
 		}
 
+		var lastPatchedDockerfile string
+		var lastDiff string
+		var lastExplanation string
+
 		for attempt := 0; attempt <= maxAttempts; attempt++ {
 			if attempt > 0 {
 				logrus.Infof("Executing build with auto-healed Dockerfile (Attempt %d of %d)...", attempt, maxAttempts)
@@ -596,20 +662,30 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 			if err == nil {
 				if attempt > 0 {
 					ai.PrintHeader("AI AUTO-HEAL: BUILD SUCCEEDED WITH PATCHED DOCKERFILE")
-					if opts.LLMSaveFixedDockerfile != "" {
+					if savePath != "" {
 						if curContent, readErr := os.ReadFile(opts.DockerfilePath); readErr == nil {
-							_ = os.WriteFile(opts.LLMSaveFixedDockerfile, curContent, 0644)
-							logrus.Infof("Saved auto-healed Dockerfile to %s", opts.LLMSaveFixedDockerfile)
+							_ = os.WriteFile(savePath, curContent, 0644)
+							logrus.Infof("Saved auto-healed Dockerfile to %s", savePath)
 						}
 					}
+					ai.PrintFooter("AI AUTO-HEAL: BUILD SUCCEEDED WITH PATCHED DOCKERFILE")
 				}
+				var diagReport string
 				if opts.LLMDiagnose {
 					if dockerfileBytes, err := os.ReadFile(opts.DockerfilePath); err == nil {
 						ai.PrintHeader("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
-						if diagReport, err := ai.RunSuccessDiagnostics(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
+						if r, err := ai.RunSuccessDiagnostics(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
+							diagReport = r
 							ai.PrintReport(diagReport)
 						}
+						ai.PrintFooter("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
 					}
+				}
+				if diagReport == "" {
+					diagReport = lastExplanation
+				}
+				if opts.LLMArtifactDir != "" {
+					_ = ai.ExportArtifacts(opts.LLMArtifactDir, lastPatchedDockerfile, diagReport, lastDiff, aiClient.GetAuditLogs())
 				}
 				return image, nil
 			}
@@ -627,6 +703,7 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 					ErrorMessage:      err.Error(),
 					TargetArch:        opts.CustomPlatform,
 					TargetOS:          "linux",
+					PrivacyMode:       opts.LLMPrivacyMode,
 				}
 
 				ai.PrintHeader(fmt.Sprintf("AI AUTO-HEAL: ANALYZING FAILURE (ATTEMPT %d OF %d)", attempt+1, maxAttempts))
@@ -637,13 +714,23 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 						if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
 							ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
 							ai.PrintReport(diagReport)
+							ai.PrintFooter("AI BUILD FAILURE DIAGNOSTIC REPORT")
+							if opts.LLMArtifactDir != "" {
+								_ = ai.ExportArtifacts(opts.LLMArtifactDir, "", diagReport, "", aiClient.GetAuditLogs())
+							}
 						}
 					}
+					ai.PrintFooter(fmt.Sprintf("AI AUTO-HEAL: ANALYZING FAILURE (ATTEMPT %d OF %d)", attempt+1, maxAttempts))
 					return nil, err
 				}
 
+				lastPatchedDockerfile = healResult.PatchedDockerfile
+				lastDiff = healResult.Diff
+				lastExplanation = healResult.Explanation
+
 				logrus.Infof("Explanation: %s", healResult.Explanation)
 				ai.PrintDiff(healResult.Diff)
+				ai.PrintFooter(fmt.Sprintf("AI AUTO-HEAL: ANALYZING FAILURE (ATTEMPT %d OF %d)", attempt+1, maxAttempts))
 
 				// Write patched Dockerfile and retry
 				if writeErr := os.WriteFile(opts.DockerfilePath, []byte(healResult.PatchedDockerfile), 0644); writeErr != nil {
@@ -665,11 +752,18 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 					ErrorMessage:      err.Error(),
 					TargetArch:        opts.CustomPlatform,
 					TargetOS:          "linux",
+					PrivacyMode:       opts.LLMPrivacyMode,
 				}
 				if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
 					ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
 					ai.PrintReport(diagReport)
+					ai.PrintFooter("AI BUILD FAILURE DIAGNOSTIC REPORT")
+					if opts.LLMArtifactDir != "" {
+						_ = ai.ExportArtifacts(opts.LLMArtifactDir, lastPatchedDockerfile, diagReport, lastDiff, aiClient.GetAuditLogs())
+					}
 				}
+			} else if opts.LLMArtifactDir != "" {
+				_ = ai.ExportArtifacts(opts.LLMArtifactDir, lastPatchedDockerfile, lastExplanation, lastDiff, aiClient.GetAuditLogs())
 			}
 			return nil, err
 		}
@@ -689,10 +783,15 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 				ErrorMessage:      err.Error(),
 				TargetArch:        opts.CustomPlatform,
 				TargetOS:          "linux",
+				PrivacyMode:       opts.LLMPrivacyMode,
 			}
 			if diagReport, diagErr := ai.RunDiagnostics(context.Background(), aiClient, errCtx); diagErr == nil {
 				ai.PrintHeader("AI BUILD FAILURE DIAGNOSTIC REPORT")
 				ai.PrintReport(diagReport)
+				ai.PrintFooter("AI BUILD FAILURE DIAGNOSTIC REPORT")
+				if opts.LLMArtifactDir != "" {
+					_ = ai.ExportArtifacts(opts.LLMArtifactDir, "", diagReport, "", aiClient.GetAuditLogs())
+				}
 			} else {
 				logrus.Warnf("AI Diagnostics request failed: %v", diagErr)
 			}
@@ -705,7 +804,11 @@ func executeBuildWithAI(opts *config.KanikoOptions) (v1.Image, error) {
 			ai.PrintHeader("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
 			if diagReport, err := ai.RunSuccessDiagnostics(context.Background(), aiClient, string(dockerfileBytes), opts.CustomPlatform); err == nil {
 				ai.PrintReport(diagReport)
+				if opts.LLMArtifactDir != "" {
+					_ = ai.ExportArtifacts(opts.LLMArtifactDir, "", diagReport, "", aiClient.GetAuditLogs())
+				}
 			}
+			ai.PrintFooter("AI IMAGE SIZE & CODEBASE OPTIMIZATION REPORT")
 		}
 	}
 

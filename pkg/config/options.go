@@ -101,13 +101,19 @@ type LLMOptions struct {
 	LLMKeyFile             string
 	LLMModel               string
 	LLMDiagnose            bool
+	LLMDiagnoseApply       bool
 	LLMAutoHeal            bool
 	LLMMaxRetries          int
+	LLMSaveDockerfile      string
 	LLMSaveFixedDockerfile string
+	LLMArtifactDir         string
 	LLMLint                bool
 	LLMTimeout             time.Duration
 	LLMOutput              string
 	LLMRedactPatterns      string
+	LLMVerbose             bool
+	LLMPrivacyMode         string
+	LLMSecurityGuardrails  bool
 }
 
 type KanikoGitOptions struct {
