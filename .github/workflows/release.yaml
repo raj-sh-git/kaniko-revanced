@@ -7,13 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. v0.1.0)'
+        description: 'Release version (e.g. v0.2.0)'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.2.0'
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   build-and-publish:
@@ -75,12 +74,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.8.1
-
-      - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0.18.0
-
       - name: Compute Image Tags
         id: tags
         run: |
@@ -92,7 +85,6 @@ jobs:
           if [ "${{ matrix.image_suffix }}" = "executor" ]; then
             if [ "${{ matrix.is_default }}" = "true" ]; then
               TAGS="${REPO}:${CLEAN_VER},${REPO}:${VERSION},${REPO}:latest,${REPO}:ai"
-              PRIMARY="${REPO}:${CLEAN_VER}"
             else
               TAG_SUF="${{ matrix.tag_suffix }}"
               CLEAN_SUF="${TAG_SUF#-}"
@@ -101,14 +93,11 @@ jobs:
               else
                 TAGS="${REPO}:${CLEAN_SUF}-${CLEAN_VER},${REPO}:${VERSION}${TAG_SUF},${REPO}:${CLEAN_SUF}"
               fi
-              PRIMARY="${REPO}:${CLEAN_SUF}-${CLEAN_VER}"
             fi
           elif [ "${{ matrix.image_suffix }}" = "warmer" ]; then
             TAGS="${WARMER_REPO}:${CLEAN_VER},${WARMER_REPO}:${VERSION},${WARMER_REPO}:latest"
-            PRIMARY="${WARMER_REPO}:${CLEAN_VER}"
           fi
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-          echo "primary_tag=${PRIMARY}" >> $GITHUB_OUTPUT
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
@@ -122,18 +111,6 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Sign Container Image with Cosign
-        run: |
-          IMAGE_DIGEST="${{ steps.tags.outputs.primary_tag }}@${{ steps.build-push.outputs.digest }}"
-          echo "Signing $IMAGE_DIGEST..."
-          cosign sign --yes "$IMAGE_DIGEST"
-
-      - name: Generate SBOM with Syft & Attest
-        run: |
-          IMAGE_DIGEST="${{ steps.tags.outputs.primary_tag }}@${{ steps.build-push.outputs.digest }}"
-          syft "${IMAGE_DIGEST}" -o spdx-json=sbom.spdx.json
-          cosign attest --yes --predicate sbom.spdx.json --type spdxjson "$IMAGE_DIGEST"
 
   create-release:
     name: Create GitHub Release
@@ -160,16 +137,21 @@ jobs:
         run: |
           TAG="${{ steps.meta.outputs.tag }}"
           CLEAN_VER="${TAG#v}"
-          echo "## kaniko-revanced ${TAG}" > RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "### Images Available on Docker Hub" >> RELEASE_NOTES.md
-          echo "- \`kanikorevanced/executor:${CLEAN_VER}\` (or \`latest\`)" >> RELEASE_NOTES.md
-          echo "- \`kanikorevanced/executor:debug-${CLEAN_VER}\` (or \`debug\`)" >> RELEASE_NOTES.md
-          echo "- \`kanikorevanced/executor:slim-${CLEAN_VER}\` (or \`slim\`)" >> RELEASE_NOTES.md
-          echo "- \`kanikorevanced/warmer:${CLEAN_VER}\` (or \`latest\`)" >> RELEASE_NOTES.md
-          echo "" >> RELEASE_NOTES.md
-          echo "### Supply Chain Security" >> RELEASE_NOTES.md
-          echo "All images are cryptographically signed with Cosign keyless signatures and include attached Syft SPDX SBOMs." >> RELEASE_NOTES.md
+          cat <<EOF > RELEASE_NOTES.md
+          ## kaniko-revanced ${TAG}
+
+          ### 📦 Multi-Arch Images Available on Docker Hub
+          * \`kanikorevanced/executor:${CLEAN_VER}\` (or \`latest\`, \`ai\`)
+          * \`kanikorevanced/executor:debug-${CLEAN_VER}\` (or \`debug\`, \`ai-debug\`)
+          * \`kanikorevanced/executor:slim-${CLEAN_VER}\` (or \`slim\`)
+          * \`kanikorevanced/warmer:${CLEAN_VER}\` (or \`latest\`)
+
+          ### 🤖 AI-Powered Build Features
+          * **Pre-flight LLM validation & health checks** with non-blocking fail-open resilience.
+          * **Intelligent Auto-healing** (\`--llm-auto-heal\`): automatically remediates Dockerfile build errors.
+          * **AI Diagnostics & Optimization** (\`--llm-diagnose\`, \`--llm-diagnose-apply\`, \`--llm-lint\`).
+          * **GitLab CI & CI logs protection** with native collapsible sections.
+          EOF
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

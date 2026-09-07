@@ -26,7 +26,7 @@ const ProjectName = "kaniko-revanced"
 
 // Set with LDFLAGS
 var (
-	version   = "v0.1.0"
+	version   = "v0.2.0"
 	commit    = "unknown"
 	buildDate = "unknown"
 )
