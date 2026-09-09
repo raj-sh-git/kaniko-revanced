@@ -66,7 +66,7 @@ RUN \
   make out/executor out/warmer
 
 # Generate latest ca-certificates
-FROM --platform=$BUILDPLATFORM alpine:3.20 AS certs
+FROM --platform=$BUILDPLATFORM alpine:3.24 AS certs
 RUN apk --no-cache add ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
