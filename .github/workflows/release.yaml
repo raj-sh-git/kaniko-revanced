@@ -162,7 +162,7 @@ jobs:
           generate_release_notes: true
 
       - name: Update Docker Hub Description (executor)
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@v5
         continue-on-error: true
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -172,7 +172,7 @@ jobs:
           short-description: "Modern, fast, secure, AI-powered container image builder in userspace (drop-in Kaniko replacement)."
 
       - name: Update Docker Hub Description (warmer)
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@v5
         continue-on-error: true
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
