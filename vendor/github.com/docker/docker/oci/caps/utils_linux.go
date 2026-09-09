@@ -1,9 +1,10 @@
-package caps // import "github.com/docker/docker/oci/caps"
+package caps
+
 import (
 	"context"
 	"sync"
 
-	ccaps "github.com/containerd/containerd/pkg/cap"
+	ccaps "github.com/containerd/containerd/v2/pkg/cap"
 	"github.com/containerd/log"
 )
 

@@ -1,4 +1,4 @@
-package dockerfile // import "github.com/docker/docker/builder/dockerfile"
+package dockerfile
 
 import (
 	"context"
@@ -68,7 +68,7 @@ func (m *imageSources) Unmount() (retErr error) {
 			retErr = err
 		}
 	}
-	return
+	return retErr
 }
 
 func (m *imageSources) Add(im *imageMount, platform *ocispec.Platform) {
