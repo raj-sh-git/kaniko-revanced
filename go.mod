@@ -22,7 +22,7 @@ require (
 	github.com/google/go-github/v69 v69.2.0
 	github.com/google/slowjam v1.1.2
 	github.com/karrick/godirwalk v1.17.0
-	github.com/minio/highwayhash v1.0.3
+	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.32.2
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
