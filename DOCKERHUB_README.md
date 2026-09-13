@@ -15,9 +15,9 @@ All images are multi-architecture (`linux/amd64`, `linux/arm64`, `linux/s390x`, 
 
 | Image Tag | Flavor | Shell Included | Cloud Credential Helpers | Recommended Use Case |
 | :--- | :--- | :---: | :---: | :--- |
-| **`0.2.0`**, **`latest`** | Standard | ❌ | GCR, ECR, ACR | **Production & Kubernetes**: Zero-overhead, minimal attack surface without shell binaries. |
-| **`debug-0.2.0`**, **`debug`** | Debug | ✅ (`/busybox/sh`) | GCR, ECR, ACR | **GitLab CI & CI/CD Pipelines**: Required when your CI runner executes script steps inside the container. |
-| **`slim-0.2.0`**, **`slim`** | Slim | ❌ | ❌ | **Minimal Footprint**: Lightweight image when cloud credential helpers are not required. |
+| **`0.3.0`**, **`latest`** | Standard | ❌ | GCR, ECR, ACR | **Production & Kubernetes**: Zero-overhead, minimal attack surface without shell binaries. |
+| **`debug-0.3.0`**, **`debug`** | Debug | ✅ (`/busybox/sh`) | GCR, ECR, ACR | **GitLab CI & CI/CD Pipelines**: Required when your CI runner executes script steps inside the container. |
+| **`slim-0.3.0`**, **`slim`** | Slim | ❌ | ❌ | **Minimal Footprint**: Lightweight image when cloud credential helpers are not required. |
 | **`ai`** | AI Edition | ❌ | GCR, ECR, ACR | **Autonomous Production**: Intelligent auto-healing, diagnostics, and optimization. |
 | **`ai-debug`** | AI Debug | ✅ (`/busybox/sh`) | GCR, ECR, ACR | **Interactive AI CI/CD**: Full shell plus AI auto-healing and diagnostic reports. |
 

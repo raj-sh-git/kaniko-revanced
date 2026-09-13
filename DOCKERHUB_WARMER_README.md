@@ -9,7 +9,7 @@
 
 ## 🏷️ Available Tags
 
-* **`0.2.0`**, **`latest`**: Multi-arch (`linux/amd64`, `linux/arm64`, `linux/s390x`, `linux/ppc64le`) cache warmer.
+* **`0.3.0`**, **`latest`**: Multi-arch (`linux/amd64`, `linux/arm64`, `linux/s390x`, `linux/ppc64le`) cache warmer.
 
 ---
 
