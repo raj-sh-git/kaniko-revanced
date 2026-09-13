@@ -50,7 +50,7 @@ jobs:
 
       - name: Trigger Release Workflow
         if: steps.cadence.outputs.should_release == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.actions.createWorkflowDispatch({
