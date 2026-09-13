@@ -133,6 +133,12 @@ func launchTests(m *testing.M) (int, error) {
 }
 
 func TestMain(m *testing.M) {
+	testing.Init()
+	flag.Parse()
+	if f := flag.Lookup("test.list"); f != nil && f.Value.String() != "" {
+		os.Exit(m.Run())
+	}
+
 	var err error
 	if !meetsRequirements() {
 		fmt.Println("Missing required tools")

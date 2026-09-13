@@ -30,4 +30,9 @@ for i in $TESTS; do
   count=$((count+1))
 done
 
-echo $RUN_ARG
+if [ -z "$RUN_ARG" ]; then
+  echo "Error: no misc integration tests discovered" >&2
+  exit 1
+fi
+
+echo "^($RUN_ARG)$"
