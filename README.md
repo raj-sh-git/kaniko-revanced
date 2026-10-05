@@ -42,10 +42,10 @@ In comparative testing against the official Google Kaniko executor (`gcr.io/kani
 
 Run **kaniko-revanced** as a container image from Docker Hub repository [`kanikorevanced/executor`](https://hub.docker.com/r/kanikorevanced/executor):
 - **AI-Powered Diagnostics & Auto-Healing**: `kanikorevanced/executor:ai` (or `kanikorevanced/executor:ai-debug`)
-- **Standard Executor**: `kanikorevanced/executor:latest` (or `kanikorevanced/executor:0.1.0`)
-- **Debug Shell**: `kanikorevanced/executor:debug` (or `kanikorevanced/executor:debug-0.1.0`)
-- **Slim**: `kanikorevanced/executor:slim` (or `kanikorevanced/executor:slim-0.1.0`)
-- **Cache Warmer**: `kanikorevanced/warmer:latest` (or `kanikorevanced/warmer:0.1.0`)
+- **Standard Executor**: `kanikorevanced/executor:latest` (or `kanikorevanced/executor:0.5.0`)
+- **Debug Shell**: `kanikorevanced/executor:debug` (or `kanikorevanced/executor:debug-0.5.0`)
+- **Slim**: `kanikorevanced/executor:slim` (or `kanikorevanced/executor:slim-0.5.0`)
+- **Cache Warmer**: `kanikorevanced/warmer:latest` (or `kanikorevanced/warmer:0.5.0`)
 
 ---
 
