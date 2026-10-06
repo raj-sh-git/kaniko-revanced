@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sirupsen/logrus"
@@ -42,7 +43,8 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 	var d []uint8
 	match, _ := regexp.MatchString("^https?://", opts.DockerfilePath)
 	if match {
-		response, e := http.Get(opts.DockerfilePath) //nolint:noctx
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		response, e := httpClient.Get(opts.DockerfilePath) //nolint:noctx
 		if e != nil {
 			return nil, nil, e
 		}

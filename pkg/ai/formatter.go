@@ -21,6 +21,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/moby/term"
 )
 
 const (
@@ -41,6 +43,10 @@ func isGitHubActions() bool {
 	return os.Getenv("GITHUB_ACTIONS") == "true"
 }
 
+func isTerminal() bool {
+	return term.IsTerminal(os.Stdout.Fd())
+}
+
 // PrintHeader renders a stylish banner or CI collapsible group
 func PrintHeader(title string) {
 	if isGitLabCI() {
@@ -51,6 +57,12 @@ func PrintHeader(title string) {
 
 	if isGitHubActions() {
 		fmt.Printf("::group::%s\n", title)
+		return
+	}
+
+	// If not a terminal (e.g. piped to file), skip ANSI formatting
+	if !isTerminal() {
+		fmt.Printf("\n=== %s ===\n", title)
 		return
 	}
 
@@ -79,14 +91,27 @@ func PrintFooter(title string) {
 
 // PrintDiff renders a colorized unified diff
 func PrintDiff(diff string) {
+	useColor := isTerminal()
 	lines := strings.Split(diff, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "---") || strings.HasPrefix(line, "+++") {
-			fmt.Printf("%s%s%s%s\n", ansiCyan, ansiBold, line, ansiReset)
+			if useColor {
+				fmt.Printf("%s%s%s%s\n", ansiCyan, ansiBold, line, ansiReset)
+			} else {
+				fmt.Println(line)
+			}
 		} else if strings.HasPrefix(line, "-") {
-			fmt.Printf("%s%s%s\n", ansiRed, line, ansiReset)
+			if useColor {
+				fmt.Printf("%s%s%s\n", ansiRed, line, ansiReset)
+			} else {
+				fmt.Println(line)
+			}
 		} else if strings.HasPrefix(line, "+") {
-			fmt.Printf("%s%s%s\n", ansiGreen, line, ansiReset)
+			if useColor {
+				fmt.Printf("%s%s%s\n", ansiGreen, line, ansiReset)
+			} else {
+				fmt.Println(line)
+			}
 		} else {
 			fmt.Printf("  %s\n", line)
 		}

@@ -505,4 +505,20 @@ func TestWriteDigestFile(t *testing.T) {
 			t.Errorf("expected uploaded content to be 'test', but got '%s'", uploadedContent)
 		}
 	})
+
+	t.Run("https_PUT_Error", func(t *testing.T) {
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		oldClient := http.DefaultClient
+		defer func() { http.DefaultClient = oldClient }()
+		http.DefaultClient = server.Client()
+
+		err := writeDigestFile(server.URL+"/df?sig=1234", []byte("test"))
+		if err == nil {
+			t.Fatal("expected error on HTTP 500 response, got nil")
+		}
+	})
 }

@@ -32,6 +32,6 @@ Keep the analysis concise, actionable, and formatted with clear emoji headings.`
 
 // RunLint executes pre-flight static analysis on a Dockerfile
 func RunLint(ctx context.Context, client *Client, dockerfileContent, targetArch string) (string, error) {
-	userPrompt := fmt.Sprintf("Perform pre-flight static analysis on this Dockerfile (Target Arch: %s):\n\n```dockerfile\n%s\n```", targetArch, dockerfileContent)
+	userPrompt := fmt.Sprintf("Perform pre-flight static analysis on this Dockerfile (Target Arch: %s):\n\n<user_dockerfile>\n%s\n</user_dockerfile>", targetArch, dockerfileContent)
 	return client.Complete(ctx, lintSystemPrompt, userPrompt)
 }

@@ -146,11 +146,18 @@ jobs:
             echo "* \`kanikorevanced/executor:slim-${CLEAN_VER}\` (or \`slim\`)"
             echo "* \`kanikorevanced/warmer:${CLEAN_VER}\` (or \`latest\`)"
             echo ""
-            echo "### 🤖 AI-Powered Build Features"
-            echo "* **Pre-flight LLM validation & health checks** with non-blocking fail-open resilience."
-            echo "* **Intelligent Auto-healing** (\`--llm-auto-heal\`): automatically remediates Dockerfile build errors."
-            echo "* **AI Diagnostics & Optimization** (\`--llm-diagnose\`, \`--llm-diagnose-apply\`, \`--llm-lint\`)."
-            echo "* **GitLab CI & CI logs protection** with native collapsible sections."
+            echo "### 🔐 Security & Safety Mitigations"
+            echo "* **Zip Slip Protection**: Added destination boundary validation for symlinks and hardlinks to prevent archive path traversal."
+            echo "* **Prompt Injection Hardening**: Wrapped Dockerfile content, logs, and error outputs in XML tags with explicit untrusted input instructions."
+            echo "* **Auto-Heal AST Guardrails**: Blocked dangerous pipe-to-shell patterns (\`curl ... | sh\`) and added base image drift detection."
+            echo "* **Two-Way Credential Sanitization**: Redacted LLM responses in audit logs; added regex patterns for GitLab and Docker Hub tokens."
+            echo "* **Secret Exposure Mitigation**: Deprecated \`--llm-key\` flag in favor of \`--llm-key-file\` and \`KANIKO_LLM_KEY\`."
+            echo ""
+            echo "### ⚡ Correctness & Performance"
+            echo "* **LCS Unified Diff Algorithm**: Replaced broken line diff with Longest Common Subsequence diffing for auto-heal patches."
+            echo "* **HTTP Body Leaks & Timeouts**: Added 30-second timeouts and HTTP error handling for remote fetches and digest uploads."
+            echo "* **Concurrency Safety**: Removed global \`PATH\` mutation race condition in command execution."
+            echo "* **Resource Optimization**: 1GB remote download ceiling, lightweight tar compression detection, and optimized \`O(N log N)\` path deduplication."
           } > RELEASE_NOTES.md
 
       - name: Publish GitHub Release

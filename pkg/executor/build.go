@@ -860,41 +860,23 @@ func filesToSave(deps []string) ([]string, error) {
 // deduplicatePaths returns a deduplicated slice of shortest paths
 // For example {"usr/lib", "usr/lib/ssl"} will return only {"usr/lib"}
 func deduplicatePaths(paths []string) []string {
-	type node struct {
-		children map[string]*node
-		value    bool
+	if len(paths) == 0 {
+		return paths
 	}
 
-	root := &node{children: make(map[string]*node)}
+	sort.Strings(paths)
 
-	// Create a tree marking all present paths
-	for _, f := range paths {
-		parts := strings.Split(f, "/")
-		current := root
-		for i := 0; i < len(parts)-1; i++ {
-			part := parts[i]
-			if _, ok := current.children[part]; !ok {
-				current.children[part] = &node{children: make(map[string]*node)}
-			}
-			current = current.children[part]
+	var deduped []string
+	deduped = append(deduped, paths[0])
+
+	for i := 1; i < len(paths); i++ {
+		last := deduped[len(deduped)-1]
+		// Skip if current path is the same as the last or is a subdirectory of it
+		if paths[i] == last || strings.HasPrefix(paths[i], last+"/") {
+			continue
 		}
-		current.children[parts[len(parts)-1]] = &node{children: make(map[string]*node), value: true}
+		deduped = append(deduped, paths[i])
 	}
-
-	// Collect all paths
-	deduped := []string{}
-	var traverse func(*node, string)
-	traverse = func(n *node, path string) {
-		if n.value {
-			deduped = append(deduped, strings.TrimPrefix(path, "/"))
-			return
-		}
-		for k, v := range n.children {
-			traverse(v, path+"/"+k)
-		}
-	}
-
-	traverse(root, "")
 
 	return deduped
 }

@@ -266,7 +266,9 @@ var RootCmd = &cobra.Command{
 					return
 				}
 				defer f.Close()
-				f.WriteString(s)
+				if _, err := f.WriteString(s); err != nil {
+					logrus.Warnf("Failed to write benchmark file: %v", err)
+				}
 				logrus.Infof("Benchmark file written at %s", benchmarkFile)
 			}
 		}
@@ -333,7 +335,7 @@ func addKanikoOptionsFlags() {
 
 	// AI Flags
 	RootCmd.PersistentFlags().StringVar(&opts.LLMAPI, "llm-api", "", "Base URL of the OpenAI-compatible LLM endpoint (e.g. https://api.openai.com/v1, http://localhost:11434/v1)")
-	RootCmd.PersistentFlags().StringVar(&opts.LLMKey, "llm-key", "", "API key / Bearer token for the LLM endpoint")
+	RootCmd.PersistentFlags().StringVar(&opts.LLMKey, "llm-key", "", "[DEPRECATED: use --llm-key-file or KANIKO_LLM_KEY env var] API key / Bearer token for the LLM endpoint")
 	RootCmd.PersistentFlags().StringVar(&opts.LLMKeyFile, "llm-key-file", "", "Path to a file containing the LLM API key")
 	RootCmd.PersistentFlags().StringVar(&opts.LLMModel, "llm-model", "gpt-4o-mini", "Model identifier to use for AI diagnostics and auto-healing")
 	RootCmd.PersistentFlags().BoolVar(&opts.LLMDiagnose, "llm-diagnose", false, "Provide full failure diagnostics, image size reduction tips, and codebase recommendations")

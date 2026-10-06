@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -188,7 +189,8 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	var baseNames []string
 	match, _ := regexp.MatchString("^https?://", opts.DockerfilePath)
 	if match {
-		response, e := http.Get(opts.DockerfilePath) //nolint:noctx
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		response, e := httpClient.Get(opts.DockerfilePath) //nolint:noctx
 		if e != nil {
 			return nil, e
 		}

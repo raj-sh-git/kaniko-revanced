@@ -1,3 +1,55 @@
+# v0.6.0 Release 2026-10-06
+
+The container images in this release are:
+```
+kanikorevanced/executor:0.6.0
+kanikorevanced/executor:latest
+kanikorevanced/executor:ai
+```
+
+The debug images are available at:
+```
+kanikorevanced/executor:debug-0.6.0
+kanikorevanced/executor:debug
+kanikorevanced/executor:ai-debug
+```
+
+The slim images without cloud credential helpers are available at:
+```
+kanikorevanced/executor:slim-0.6.0
+kanikorevanced/executor:slim
+```
+
+The cache warmer images are available at:
+```
+kanikorevanced/warmer:0.6.0
+kanikorevanced/warmer:latest
+```
+
+### 🔐 Security & Safety Mitigations
+* **Zip Slip Symlink Protection**: Added destination boundary verification for `tar.TypeSymlink` to block directory traversal attacks via tar archives. Fixed hardlink boundary checks to prevent false positives on paths starting with `..`.
+* **Prompt Injection Hardening**: All untrusted inputs (Dockerfile content, logs, stderr, errors) are wrapped inside strict `<user_dockerfile>`, `<build_logs>`, and `<error_output>` XML delimiters. System prompts now instruct LLMs to explicitly disregard nested instructions.
+* **Auto-Heal Safety Guardrails**: Added AST analysis in `ValidatePatchedDockerfile` to detect and block dangerous pipe-to-shell patterns (`curl ... | sh`, `wget ... | bash`) and warn on unexpected base image modifications.
+* **Two-Way Credential Sanitization**: LLM responses are sanitized prior to writing to `ai-audit.json` or console output. Added scrubbing for GitLab tokens (`glpat-`, `glrt-`) and Docker Hub tokens (`dckr_pat_`). Fixed `envSecretRegex` to preserve delimiters and ignore already-redacted text.
+* **Credential Exposure Deprecation**: Marked `--llm-key` with deprecation guidance pointing to `--llm-key-file` and `KANIKO_LLM_KEY` to avoid leaking secrets through process listings (`ps aux`).
+
+### ⚡ Correctness & Reliability
+* **LCS Unified Diff Algorithm**: Replaced broken index-based comparison with a Longest Common Subsequence algorithm, accurately preserving unchanged lines as context during auto-heal.
+* **Resilient Code Block Parsing**: Enhanced `dockerfileBlockRegex` to support code blocks returned without a trailing newline before closing backticks.
+* **HTTP Body Leaks & Status Validation**: Added `defer resp.Body.Close()` and status code validation (`resp.StatusCode >= 400`) during digest uploads in `pkg/executor/push.go`.
+* **Process Environment Concurrency**: Resolved binaries by directly searching container `PATH` directories in `runCommandInExec` rather than mutating global `os.Setenv("PATH")`.
+* **Typed Process Error Handling**: Replaced brittle string matching with `err != syscall.ESRCH`.
+* **Tekton Output Compatibility**: Preserved newline-delimited JSON format for `BUILDER_OUTPUT/images` to retain compatibility with Tekton Pipelines.
+
+### 🚀 Performance & Resource Management
+* **HTTP Timeouts**: Added 30-second timeouts across remote Dockerfile downloads, cache warming, and ADD URL downloads to prevent builds from hanging indefinitely.
+* **Unbounded Stream Download Protection**: Limited remote downloads to 1GB using `io.LimitReader` to prevent disk exhaustion DoS attacks.
+* **Tar Detection I/O**: Optimized `fileIsCompressedTar` to read only the first 10 header bytes rather than buffering entire archives into memory.
+* **Path Deduplication Optimization**: Replaced heavy Trie data structure creation with an in-place sort and single-pass scan (`O(N log N)`).
+* **Terminal-Aware Formatting**: Integrated `github.com/moby/term` terminal detection to prevent ANSI escape codes from polluting file redirects and CI logs.
+
+---
+
 # v1.24.0 Release 2025-05-21
 The executor images in this release are:
 ```

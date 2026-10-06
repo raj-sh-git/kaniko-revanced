@@ -413,7 +413,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 		if dest != "/" && dest != "" {
 			relLink, err := filepath.Rel(destAbs, linkAbs)
-			if err != nil || strings.HasPrefix(relLink, "..") || relLink == ".." {
+			if err != nil || strings.HasPrefix(relLink, ".."+string(filepath.Separator)) || relLink == ".." {
 				return fmt.Errorf("security violation: hardlink target %q attempts to escape target directory %q (Zip Slip)", hdr.Linkname, dest)
 			}
 		}
@@ -423,6 +423,19 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 
 	case tar.TypeSymlink:
 		logrus.Tracef("Symlink from %s to %s", hdr.Linkname, path)
+		// Zip Slip protection: validate that symlink target does not escape the destination directory
+		if dest != "/" && dest != "" {
+			resolvedTarget := filepath.Join(filepath.Dir(path), hdr.Linkname)
+			resolvedTarget = filepath.Clean(resolvedTarget)
+			resolvedTargetAbs, err := filepath.Abs(resolvedTarget)
+			if err != nil {
+				return err
+			}
+			relTarget, err := filepath.Rel(destAbs, resolvedTargetAbs)
+			if err != nil || strings.HasPrefix(relTarget, ".."+string(filepath.Separator)) || relTarget == ".." {
+				return fmt.Errorf("security violation: symlink %q points to %q which is outside target directory %q (Zip Slip)", hdr.Name, hdr.Linkname, dest)
+			}
+		}
 		// The base directory for a symlink may not exist before it is created.
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
@@ -653,7 +666,8 @@ func AddVolumePathToIgnoreList(path string) {
 //     - destination will have permissions of 0600 by default if not specified with chmod
 //     - If remote file has HTTP Last-Modified header, we set the mtime of the file to that timestamp
 func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode) error {
-	resp, err := http.Get(rawurl) //nolint:noctx
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Get(rawurl) //nolint:noctx
 	if err != nil {
 		return err
 	}
@@ -663,7 +677,10 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode) 
 		return fmt.Errorf("invalid response status %d", resp.StatusCode)
 	}
 
-	if err := CreateFile(dest, resp.Body, chmod, uint32(uid), uint32(gid)); err != nil {
+	// Limit download size to 1GB to prevent denial-of-service via infinite streams
+	const maxDownloadSize = 1 << 30 // 1 GB
+	limitedBody := io.LimitReader(resp.Body, maxDownloadSize)
+	if err := CreateFile(dest, limitedBody, chmod, uint32(uid), uint32(gid)); err != nil {
 		return err
 	}
 	mTime := time.Time{}

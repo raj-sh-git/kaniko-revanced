@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -66,19 +67,21 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		newCommand = append(shell, strings.Join(cmdRun.CmdLine, " "))
 	} else {
 		newCommand = cmdRun.CmdLine
-		// Find and set absolute path of executable by setting PATH temporary
+		// Find absolute path of executable by searching the container PATH
+		// without mutating the global process environment
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		for _, v := range replacementEnvs {
 			entry := strings.SplitN(v, "=", 2)
 			if entry[0] != "PATH" {
 				continue
 			}
-			oldPath := os.Getenv("PATH")
-			defer os.Setenv("PATH", oldPath)
-			os.Setenv("PATH", entry[1])
-			path, err := exec.LookPath(newCommand[0])
-			if err == nil {
-				newCommand[0] = path
+			// Search the container PATH directories directly
+			for _, dir := range strings.Split(entry[1], ":") {
+				candidatePath := filepath.Join(dir, newCommand[0])
+				if fi, err := os.Stat(candidatePath); err == nil && !fi.IsDir() {
+					newCommand[0] = candidatePath
+					break
+				}
 			}
 		}
 	}
@@ -130,7 +133,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	}
 
 	//it's not an error if there are no grandchildren
-	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err.Error() != "no such process" {
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
 		return err
 	}
 	return nil

@@ -280,11 +280,14 @@ func fileIsCompressedTar(src string) (bool, archive.Compression) {
 		return false, -1
 	}
 	defer r.Close()
-	buf, err := io.ReadAll(r)
-	if err != nil {
+	// Only read the first 10 bytes needed for compression detection
+	// instead of reading the entire file into memory
+	buf := make([]byte, 10)
+	n, err := io.ReadAtLeast(r, buf, 10)
+	if err != nil || n < 10 {
 		return false, -1
 	}
-	compressionLevel := archive.DetectCompression(buf)
+	compressionLevel := archive.DetectCompression(buf[:n])
 	return (compressionLevel > 0), compressionLevel
 }
 

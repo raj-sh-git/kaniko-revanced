@@ -54,6 +54,18 @@ func TestSanitizeText(t *testing.T) {
 			mustNot:  "UUID_ABC999",
 			mustHave: "[REDACTED]",
 		},
+		{
+			name:     "GitLab Token",
+			input:    "RUN curl --header 'PRIVATE-TOKEN: glpat-abcdefghijklmnopqrstuv123' https://gitlab.com/api/v4/projects",
+			mustNot:  "glpat-abcdefghijklmnopqrstuv123",
+			mustHave: "[REDACTED_GITLAB_TOKEN]",
+		},
+		{
+			name:     "Docker Hub Token",
+			input:    "echo dckr_pat_abcdefghijklmnopqrstuvwxyz12345 | docker login -u user --password-stdin",
+			mustNot:  "dckr_pat_abcdefghijklmnopqrstuvwxyz12345",
+			mustHave: "[REDACTED_DOCKERHUB_TOKEN]",
+		},
 	}
 
 	for _, tc := range tests {

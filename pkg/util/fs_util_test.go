@@ -820,6 +820,22 @@ func TestExtractFile(t *testing.T) {
 	}
 }
 
+func TestExtractFile_ZipSlipSymlink(t *testing.T) {
+	tmpDir := t.TempDir()
+	hdr := &tar.Header{
+		Typeflag: tar.TypeSymlink,
+		Name:     "escapelink",
+		Linkname: "../../etc/passwd",
+	}
+	err := ExtractFile(tmpDir, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+	if err == nil {
+		t.Fatal("expected security violation for escaping symlink, got nil")
+	}
+	if !strings.Contains(err.Error(), "Zip Slip") {
+		t.Fatalf("expected Zip Slip error, got: %v", err)
+	}
+}
+
 func TestCopySymlink(t *testing.T) {
 	type tc struct {
 		name       string

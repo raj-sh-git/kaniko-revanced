@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/raj-sh-git/kaniko-revanced/pkg/dockerfile"
 	"github.com/raj-sh-git/kaniko-revanced/testutil"
 )
@@ -314,4 +315,31 @@ func TestSetWorkDirIfExists(t *testing.T) {
 	testDir := t.TempDir()
 	testutil.CheckDeepEqual(t, testDir, setWorkDirIfExists(testDir))
 	testutil.CheckDeepEqual(t, "", setWorkDirIfExists("doesnot-exists"))
+}
+
+func Test_runCommandInExec_PATHNotMutated(t *testing.T) {
+	origPATH := os.Getenv("PATH")
+	tempBin := t.TempDir()
+	script := filepath.Join(tempBin, "mycmd")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &v1.Config{
+		Env: []string{"PATH=" + tempBin},
+	}
+	cmdRun := &instructions.RunCommand{
+		CmdLine:      []string{"mycmd"},
+		PrependShell: false,
+	}
+	buildArgs := dockerfile.NewBuildArgs([]string{})
+
+	err := runCommandInExec(cfg, buildArgs, cmdRun)
+	if err != nil {
+		t.Fatalf("runCommandInExec failed: %v", err)
+	}
+
+	if currentPATH := os.Getenv("PATH"); currentPATH != origPATH {
+		t.Fatalf("global PATH was mutated! got %q, want %q", currentPATH, origPATH)
+	}
 }

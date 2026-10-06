@@ -24,10 +24,12 @@ var (
 	awsAccessKeyRegex = regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)
 	githubTokenRegex  = regexp.MustCompile(`\b(ghp_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z_]{50,90})\b`)
 	jwtRegex          = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`)
+	gitlabTokenRegex  = regexp.MustCompile(`\b(glpat-[0-9a-zA-Z_-]{20,}|glrt-[0-9a-zA-Z_-]{20,})\b`)
+	dockerhubTokenRegex = regexp.MustCompile(`\b(dckr_pat_[0-9a-zA-Z_-]{20,})\b`)
 	bearerRegex       = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9\-._~+/]+=*`)
 	privateKeyRegex   = regexp.MustCompile(`(?s)-----BEGIN [A-Z ]+PRIVATE KEY-----.*?-----END [A-Z ]+PRIVATE KEY-----`)
 	urlPassRegex      = regexp.MustCompile(`(https?://[^:\s]+):([^@\s]+)@`)
-	envSecretRegex    = regexp.MustCompile(`(?i)(password|secret|api_key|token|auth|credentials?)\s*[:=]\s*["']?([^\s"']+)["']?`)
+	envSecretRegex    = regexp.MustCompile(`(?i)(password|secret|api_key|token|auth|credentials?)\s*([:=])\s*["']?([^\[\s"'][^\s"']*)["']?`)
 )
 
 // SanitizeText scrubs sensitive credentials, tokens, and private keys from prompts
@@ -39,10 +41,12 @@ func SanitizeText(input string, customPatterns []string) string {
 	sanitized := privateKeyRegex.ReplaceAllString(input, "[REDACTED_PRIVATE_KEY]")
 	sanitized = awsAccessKeyRegex.ReplaceAllString(sanitized, "[REDACTED_AWS_KEY]")
 	sanitized = githubTokenRegex.ReplaceAllString(sanitized, "[REDACTED_GITHUB_TOKEN]")
+	sanitized = gitlabTokenRegex.ReplaceAllString(sanitized, "[REDACTED_GITLAB_TOKEN]")
+	sanitized = dockerhubTokenRegex.ReplaceAllString(sanitized, "[REDACTED_DOCKERHUB_TOKEN]")
 	sanitized = jwtRegex.ReplaceAllString(sanitized, "[REDACTED_JWT_TOKEN]")
 	sanitized = bearerRegex.ReplaceAllString(sanitized, "Bearer [REDACTED_TOKEN]")
 	sanitized = urlPassRegex.ReplaceAllString(sanitized, "$1:[REDACTED_PASSWORD]@")
-	sanitized = envSecretRegex.ReplaceAllString(sanitized, "$1=[REDACTED]")
+	sanitized = envSecretRegex.ReplaceAllString(sanitized, "$1$2[REDACTED]")
 
 	for _, pat := range customPatterns {
 		if pat == "" {

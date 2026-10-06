@@ -183,9 +183,12 @@ func (c *Client) Complete(ctx context.Context, systemPrompt, userPrompt string) 
 	content := chatResp.Choices[0].Message.Content
 	durationMs := time.Since(startTime).Milliseconds()
 
+	// Sanitize the LLM response to avoid leaking credentials in audit logs or console output
+	cleanContent := SanitizeText(content, c.cfg.RedactPatterns)
+
 	if c.cfg.Verbose {
 		PrintHeader("📥 [KANIKO AI] RAW RESPONSE RECEIVED")
-		fmt.Printf("Duration: %dms\n\n%s\n\n", durationMs, content)
+		fmt.Printf("Duration: %dms\n\n%s\n\n", durationMs, cleanContent)
 	}
 
 	c.auditMu.Lock()
@@ -195,7 +198,7 @@ func (c *Client) Complete(ctx context.Context, systemPrompt, userPrompt string) 
 		Model:           c.cfg.Model,
 		SanitizedSystem: cleanSystem,
 		SanitizedUser:   cleanUser,
-		Response:        content,
+		Response:        cleanContent,
 		DurationMs:      durationMs,
 	})
 	c.auditMu.Unlock()

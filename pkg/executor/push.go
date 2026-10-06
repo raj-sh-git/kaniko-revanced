@@ -153,8 +153,15 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 			return err
 		}
 		req.Header.Set("Content-Type", "text/plain")
-		_, err = http.DefaultClient.Do(req)
-		return err
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("digest file upload failed with HTTP status %d", resp.StatusCode)
+		}
+		return nil
 	}
 
 	parentDir := filepath.Dir(path)
