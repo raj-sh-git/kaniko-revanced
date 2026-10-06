@@ -142,8 +142,6 @@ func (b *xdsResolverBuilder) Build(target resolver.Target, cc resolver.ClientCon
 		httpFilters:     make(map[clientFilterKey]httpfilter.ClientFilter),
 		channelID:       rand.Uint64(),
 		ldsResourceName: ldsResourceName,
-		target:          target.String(),
-		metricsRecorder: opts.MetricsRecorder,
 
 		// serializer used to synchronize the following:
 		// - updates from the dependency manager. This could lead to generation
@@ -235,9 +233,6 @@ type xdsResolver struct {
 	xdsClient       xdsclient.XDSClient
 	xdsClientClose  func()
 	channelID       uint64 // Unique random ID for the channel owning this resolver.
-	target          string
-	metricsRecorder estats.MetricsRecorder
-
 	// All methods on the xdsResolver type except for the ones invoked by gRPC,
 	// i.e ResolveNow() and Close(), are guaranteed to execute in the context of
 	// this serializer's callback. We use the serializer because these shared
@@ -317,7 +312,13 @@ func (r *xdsResolver) Update(config *xdsresource.XDSConfig) {
 			r.onResourceError(err)
 			return
 		}
-		r.sendNewServiceConfig(cs)
+		if !r.sendNewServiceConfig(cs) {
+			// Channel didn't like the update we provided (unexpected); erase
+			// this config selector and ignore this update, continuing with
+			// the previous config selector.
+			cs.stop()
+			return
+		}
 
 		if r.curConfigSelector != nil {
 			r.curConfigSelector.stop()
@@ -334,12 +335,11 @@ func (r *xdsResolver) Error(err error) {
 
 // sendNewServiceConfig prunes active clusters, generates a new service config
 // based on the current set of active clusters, and sends an update to the
-// channel with that service config and the provided config selector. It is safe
-// to ignore the error from `cc.UpdateState` because the clientconn uses the
-// given configSelector even if it returns an error.
+// channel with that service config and the provided config selector.  Returns
+// false if an error occurs while sending an update to the channel.
 //
 // Only executed in the context of a serializer callback.
-func (r *xdsResolver) sendNewServiceConfig(cs stoppableConfigSelector) {
+func (r *xdsResolver) sendNewServiceConfig(cs stoppableConfigSelector) bool {
 	// Delete entries from r.activeClusters with zero references;
 	// otherwise serviceConfigJSON will generate a config including
 	// them.
@@ -357,7 +357,7 @@ func (r *xdsResolver) sendNewServiceConfig(cs stoppableConfigSelector) {
 		// more meaningful error, as opposed to one that says that pick_first
 		// received no addresses.
 		r.cc.ReportError(errCS.err)
-		return
+		return true
 	}
 
 	sc := serviceConfigJSON(r.activeClusters, r.activePlugins)
@@ -371,7 +371,13 @@ func (r *xdsResolver) sendNewServiceConfig(cs stoppableConfigSelector) {
 	}, cs)
 	state = xdsresource.SetXDSConfig(state, r.xdsConfig)
 	state = xdsdepmgr.SetXDSClusterSubscriber(state, r.dm)
-	r.cc.UpdateState(xdsclient.SetClient(state, r.xdsClient))
+	if err := r.cc.UpdateState(xdsclient.SetClient(state, r.xdsClient)); err != nil {
+		if r.logger.V(2) {
+			r.logger.Infof("Channel rejected new state: %+v with error: %v", state, err)
+		}
+		return false
+	}
+	return true
 }
 
 // newConfigSelector creates a new config selector using the most recently
@@ -425,13 +431,11 @@ func (r *xdsResolver) newConfigSelector() (_ *configSelector, err error) {
 				}
 				return nil, err
 			}
-			routeCluster := &routeCluster{
+			clusters.Add(&routeCluster{
 				name:        clusterName,
 				interceptor: interceptor,
-			}
-			rc := grpcsync.NewRefCounted(routeCluster, func() { interceptor.Close() })
-			cs.routes[i].routeClusters = append(cs.routes[i].routeClusters, rc)
-			clusters.Add(rc, 1)
+			}, 1)
+			interceptors = append(interceptors, interceptor)
 			ci := r.addOrGetActiveClusterInfo(clusterName, "")
 			ci.cfg = xdsChildConfig{ChildPolicy: balancerConfig(r.xdsConfig.RouteConfig.ClusterSpecifierPlugins[rt.ClusterSpecifierPlugin])}
 			cs.plugins[clusterName] = ci
@@ -449,19 +453,18 @@ func (r *xdsResolver) newConfigSelector() (_ *configSelector, err error) {
 					}
 					return nil, err
 				}
-				routeCluster := &routeCluster{
+				clusters.Add(&routeCluster{
 					name:        clusterName,
 					interceptor: interceptor,
-				}
-				rc := grpcsync.NewRefCounted(routeCluster, func() { interceptor.Close() })
-				cs.routes[i].routeClusters = append(cs.routes[i].routeClusters, rc)
-				clusters.Add(rc, int64(wc.Weight))
+				}, int64(wc.Weight))
+				interceptors = append(interceptors, interceptor)
 				ci := r.addOrGetActiveClusterInfo(clusterName, wc.Name)
 				ci.cfg = xdsChildConfig{ChildPolicy: newBalancerConfig(cdsName, cdsBalancerConfig{Cluster: wc.Name})}
 				cs.clusters[clusterName] = ci
 			}
 		}
 		cs.routes[i].clusters = clusters
+		cs.routes[i].interceptors = interceptors
 		cs.routes[i].m = xdsresource.RouteToMatcher(rt)
 		cs.routes[i].actionType = rt.ActionType
 		if rt.MaxStreamDuration == nil {
@@ -682,11 +685,7 @@ func (r *xdsResolver) getOrCreateClientFilter(builder httpfilter.ClientFilterBui
 		return clientFilter
 	}
 
-	cf := builder.BuildClientFilter(httpfilter.ClientFilterOptions{
-		FilterName:      key.name,
-		MetricsRecorder: r.metricsRecorder,
-		Target:          r.target,
-	})
+	cf := builder.BuildClientFilter(httpfilter.ClientFilterOptions{FilterName: key.name})
 	r.httpFilters[key] = cf
 	return cf
 }

@@ -61,7 +61,7 @@ func (bb) Build(cc balancer.ClientConn, bOpts balancer.BuildOptions) balancer.Ba
 		cc:                       cc,
 		done:                     grpcsync.NewEvent(),
 		children:                 make(map[string]*childBalancer),
-		childBalancerStateUpdate: buffer.NewUnbounded[any](),
+		childBalancerStateUpdate: buffer.NewUnbounded(),
 	}
 
 	b.logger = prefixLogger(b)
@@ -97,7 +97,7 @@ type priorityBalancer struct {
 	cc                       balancer.ClientConn
 	bg                       *balancergroup.BalancerGroup
 	done                     *grpcsync.Event
-	childBalancerStateUpdate *buffer.Unbounded[any]
+	childBalancerStateUpdate *buffer.Unbounded
 
 	mu         sync.Mutex
 	childInUse string

@@ -18,6 +18,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -25,8 +26,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/internal/resolver"
 	"google.golang.org/grpc/internal/xds/httpfilter"
 	"google.golang.org/grpc/internal/xds/xdsclient/xdsresource"
 	"google.golang.org/grpc/status"
@@ -208,7 +209,7 @@ type virtualHostWithInterceptors struct {
 type routeWithInterceptors struct {
 	matcher     *xdsresource.CompositeMatcher
 	actionType  xdsresource.RouteActionType
-	interceptor httpfilter.ServerInterceptor
+	interceptor resolver.ServerInterceptor
 }
 
 type lookupParams struct {
@@ -499,9 +500,9 @@ func (rc *usableRouteConfiguration) statusErrWithNodeID(c codes.Code, msg string
 	return status.Error(c, fmt.Sprintf("[xDS node id: %v]: %s", rc.nodeID, fmt.Sprintf(msg, args...)))
 }
 
-func (fc *filterChain) newInterceptor(routeOverride, virtualHostOverride map[string]httpfilter.FilterConfig, provider serverFilterProvider) (_ httpfilter.ServerInterceptor, _ []httpfilter.ServerFilter, err error) {
+func (fc *filterChain) newInterceptor(routeOverride, virtualHostOverride map[string]httpfilter.FilterConfig, provider serverFilterProvider) (_ resolver.ServerInterceptor, _ []httpfilter.ServerFilter, err error) {
 	serverFilters := []httpfilter.ServerFilter{}
-	interceptors := make([]httpfilter.ServerInterceptor, 0, len(fc.httpFilters))
+	interceptors := make([]resolver.ServerInterceptor, 0, len(fc.httpFilters))
 	defer func() {
 		if err != nil {
 			for _, sf := range serverFilters {
@@ -548,18 +549,16 @@ func (fc *filterChain) newInterceptor(routeOverride, virtualHostOverride map[str
 }
 
 type interceptorList struct {
-	interceptors []httpfilter.ServerInterceptor
+	interceptors []resolver.ServerInterceptor
 }
 
-func (il *interceptorList) InterceptRPC(ss grpc.ServerStream) (grpc.ServerStream, error) {
-	var err error
+func (il *interceptorList) AllowRPC(ctx context.Context) error {
 	for _, i := range il.interceptors {
-		ss, err = i.InterceptRPC(ss)
-		if err != nil {
-			return nil, err
+		if err := i.AllowRPC(ctx); err != nil {
+			return err
 		}
 	}
-	return ss, nil
+	return nil
 }
 
 func (il *interceptorList) Close() {

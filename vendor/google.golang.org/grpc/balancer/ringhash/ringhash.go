@@ -142,10 +142,10 @@ func (b *ringhashBalancer) UpdateState(state balancer.State) {
 		es, ok := b.endpointStates.Get(endpoint)
 		if !ok {
 			es := &endpointState{
+				balancer: childState.Balancer,
 				hashKey:  hk,
 				weight:   newWeight,
 				state:    childState.State,
-				exitIdle: childState.ExitIdle,
 			}
 			b.endpointStates.Set(endpoint, es)
 			b.shouldRegenerateRing = true
@@ -261,28 +261,26 @@ func (b *ringhashBalancer) updatePickerLocked() {
 		// non-deterministic, the list of `endpointState`s must be sorted to
 		// ensure `ExitIdle` is called on the same child, preventing unnecessary
 		// connections.
-		endpointStates := make([]*endpointState, 0, b.endpointStates.Len())
+		var endpointStates = make([]*endpointState, 0, b.endpointStates.Len())
 		for _, s := range b.endpointStates.All() {
 			endpointStates = append(endpointStates, s)
 		}
 		sort.Slice(endpointStates, func(i, j int) bool {
 			return endpointStates[i].hashKey < endpointStates[j].hashKey
 		})
-
-		// Store the function to ExitIdle on the first IDLE endpoint.
-		var exitIdle func()
+		var idleBalancer endpointsharding.ExitIdler
 		for _, es := range endpointStates {
 			connState := es.state.ConnectivityState
 			if connState == connectivity.Connecting {
-				exitIdle = nil
+				idleBalancer = nil
 				break
 			}
-			if exitIdle == nil && connState == connectivity.Idle {
-				exitIdle = es.exitIdle
+			if idleBalancer == nil && connState == connectivity.Idle {
+				idleBalancer = es.balancer
 			}
 		}
-		if exitIdle != nil {
-			exitIdle()
+		if idleBalancer != nil {
+			idleBalancer.ExitIdle()
 		}
 	}
 
@@ -401,7 +399,7 @@ type endpointState struct {
 	// overridden, for example based on EDS endpoint metadata.
 	hashKey  string
 	weight   uint32
-	exitIdle func()
+	balancer endpointsharding.ExitIdler
 
 	// state is updated by the balancer while receiving resolver updates from
 	// the channel and picker updates from its children. Access to it is guarded

@@ -22,6 +22,8 @@ import (
 	rand "math/rand/v2"
 	"strings"
 
+	"google.golang.org/grpc/internal/grpcutil"
+	iresolver "google.golang.org/grpc/internal/resolver"
 	"google.golang.org/grpc/internal/xds/matcher"
 	"google.golang.org/grpc/metadata"
 )
@@ -82,11 +84,27 @@ func newCompositeMatcher(pm pathMatcher, hms []matcher.HeaderMatcher, fm *fracti
 }
 
 // Match returns true if all matchers return true.
-func (a *CompositeMatcher) Match(method string, md metadata.MD) bool {
-	if a.pm != nil && !a.pm.match(method) {
+func (a *CompositeMatcher) Match(info iresolver.RPCInfo) bool {
+	if a.pm != nil && !a.pm.match(info.Method) {
 		return false
 	}
 
+	// Call headerMatchers even if md is nil, because routes may match
+	// non-presence of some headers.
+	var md metadata.MD
+	if info.Context != nil {
+		md, _ = metadata.FromOutgoingContext(info.Context)
+		if extraMD, ok := grpcutil.ExtraMetadata(info.Context); ok {
+			md = metadata.Join(md, extraMD)
+			// Remove all binary headers. They are hard to match with. May need
+			// to add back if asked by users.
+			for k := range md {
+				if strings.HasSuffix(k, "-bin") {
+					delete(md, k)
+				}
+			}
+		}
+	}
 	for _, m := range a.hms {
 		if !m.Match(md) {
 			return false
