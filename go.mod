@@ -23,7 +23,7 @@ require (
 	github.com/google/slowjam v1.1.2
 	github.com/karrick/godirwalk v1.17.0
 	github.com/minio/highwayhash v1.0.4
-	github.com/moby/buildkit v0.33.0
+	github.com/moby/buildkit v0.33.1
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
 	github.com/moby/term v0.5.2
